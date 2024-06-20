@@ -18,7 +18,8 @@ export
     plot_evolution,
     plot_frame,
     time_rate_tensor,
-    _ag_ag_echo_chamber
+    _ag_ag_echo_chamber,
+    _media_network
 
 include("utils.jl")
 include("abm.jl")
