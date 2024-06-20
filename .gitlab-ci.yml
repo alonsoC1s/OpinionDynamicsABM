@@ -1,29 +1,8 @@
-.script:
-  script:
-    - |
-      julia --project=@. -e '
-        using Pkg
-        Pkg.build()
-        Pkg.test(coverage=true)'
-.coverage:
-  coverage: /Test coverage (\d+\.\d+%)/
-  after_script:
-    - |
-      julia -e '
-        using Pkg
-        Pkg.add("Coverage")
-        using Coverage
-        c, t = get_summary(process_folder())
-        using Printf
-        @printf "Test coverage %.2f%%\n" 100c / t'
-Julia 1.10:
-  image: julia:1.10
-  extends:
-    - .script
-    - .coverage
+# The Docker image that will be used to build your app
+image: Julia:1.10
+# Functions that should be executed before the build script is run
+before_script: []
 pages:
-  image: julia:1.10
-  stage: deploy
   script:
     - |
       julia --project=docs -e '
@@ -38,6 +17,9 @@ pages:
     - mv docs/build public/dev
   artifacts:
     paths:
+      # The folder that contains the files to be exposed at the Page URL
       - public
   rules:
+    # This ensures that only pushes to the default branch will trigger
+    # a pages deploy
     - if: $CI_COMMIT_REF_NAME == $CI_DEFAULT_BRANCH
