@@ -1,6 +1,6 @@
 
 """
-    OpinionModelParams
+    ModelParams
 
 Wrapper for the Opinion Dynamics model parameters. The available parameters are:
 - `L::Int`: number of influencers
@@ -11,12 +11,12 @@ Wrapper for the Opinion Dynamics model parameters. The available parameters are:
 - `b`: interaction strength between agents and influencers
 - `c`: interaction strength between agents and media outlets
 - `σ`: noise constant of the agent's stochastic movement
-- `̂σ`: (\\hat\\sigma) noise constant for influencer movement
-- `̃σ` (\\tilde\\sigma) noise constant for media movement
+- `σ̂`: (\\sigma\\hat) noise constant for influencer movement
+- `σ̃` (\\sigma\\tilde) noise constant for media movement
 - `frictionI`: friction constant for influencers
 - `frictionM`: friction constant for media outlets
 """
-struct OpinionModelParams{T<:Real} # FIXME: Parametrizing on T is unecessary
+struct ModelParams{T<:Real} # FIXME: Parametrizing on T is unecessary
     L::Int
     M::Int
     n::Int
@@ -31,13 +31,12 @@ struct OpinionModelParams{T<:Real} # FIXME: Parametrizing on T is unecessary
     frictionM::T
 end
 
-function OpinionModelParams(L, M, n, η, a, b, c, σ, σ̂, σ̃, FI, FM)
-    OpinionModelParams(L, M, n, promote(η, a, b, c, σ, σ̂, σ̃, FI, FM)...)
+function ModelParams(L, M, n, η, a, b, c, σ, σ̂, σ̃, FI, FM)
+    ModelParams(L, M, n, promote(η, a, b, c, σ, σ̂, σ̃, FI, FM)...)
 end
 
-function OpinionModelParams()
-    # OpinionModelParams(4, 2, 250, 15, 1, 4, 2, 0.5, 0, 0, 10, 100)
-    OpinionModelParams(4, 2, 250, 15, 1, 2, 4, 0.5, 0, 0, 10, 100)
+function ModelParams(; L=4, M=2, n=250, η=15, a=1, b=2, c=4, σ=0.5, σ̂=0, σ̃=0, FI=10, FM=100)
+    ModelParams(L, M, n, η, a, b, c, σ, σ̂, σ̃, FI, FM)
 end
 
 """
@@ -47,7 +46,7 @@ encapsulates parameters and other properties of an Agent-Based model of Opinion
 Dynamics.
 """
 struct OpinionModelProblem{T<:Real}
-    p::OpinionModelParams{T} # Model parameters
+    p::ModelParams{T} # Model parameters
     X::AbstractVecOrMat{T} # Array of Agents' positions
     M::AbstractVecOrMat{T} # Array of Media positions
     I::AbstractVecOrMat{T} # Array of Influencers' positions
@@ -68,7 +67,7 @@ function Base.show(io::IO, omp::OpinionModelProblem{T}) where {T}
 end
 
 function OpinionModelProblem(dom::Vararg{Tuple{T,T},N};
-    p=OpinionModelParams(), seed=MersenneTwister(),
+    p=ModelParams(), seed=MersenneTwister(),
     AgAgNetF::Function = I -> trues(p.n, p.n)) where {N,T<:Real}
 
     # Seeding the RNG
@@ -76,8 +75,14 @@ function OpinionModelProblem(dom::Vararg{Tuple{T,T},N};
 
     # Place agents uniformly distributed across the domain
     X = reduce(hcat, [rand(Uniform(t...), p.n) for t in dom]) # p.n × N matrix
-    # perm = sortperm(sort(sum(pX; dims=2) |> vec))
-    # X = pX[perm, :]
+
+    return OpinionModelProblem(X; p = p, AgAgNetF = AgAgNetF)
+end
+
+# TODO: Implement OpinionModelProblem that doesn't take a domain, but rather an
+# initial distribution of agents.
+function OpinionModelProblem(initial_agents::AbstractVecOrMat{T};
+    p = ModelParams(), AgAgNetF::Function = I -> trues(p.n, p.n)) where {T<:Real}
 
     # We consider just 2 media outlets at the "corners"
     M = vcat(
@@ -145,7 +150,6 @@ end
 Calculate the force of attraction on agents exerted by other agents they are
 connected to, with φ the scaling function.
 """
-# function AgAg_attraction(X, AgAgNet; φ::Function = x -> exp(-x))
 function AgAg_attraction(omp::OpinionModelProblem{T}; φ=x -> exp(-x)) where {T}
     X, A = omp.X, omp.AgAgNet
     return AgAg_attraction(X, A)
@@ -247,7 +251,7 @@ Calculates the drift force acting on agents, which is the weighted sum of the
 Agent-Agent, Media-Agent and Influencer-Agent forces of attraction.
 """
 function agent_drift(X::T, M::T, I::T, A::Bm, B::Bm, C::Bm,
-    p::OpinionModelParams) where {T<:AbstractVecOrMat,Bm<:BitMatrix}
+    p::ModelParams) where {T<:AbstractVecOrMat,Bm<:BitMatrix}
     a, b, c = p.a, p.b, p.c
     return a * AgAg_attraction(X, A) + b * MedAg_attraction(X, M, B) +
            c * InfAg_attraction(X, I, C)
@@ -383,7 +387,7 @@ end
 
 
 """
-    solve(omp::OpinionModelProblem; Nt=100, dt=0.01, method=:other)
+    simulate!(omp::OpinionModelProblem; Nt=100, dt=0.01, method=:other)
 
 Simulates the evolution of the Opinion Dynamics problem `omp` by solving the
 associated SDE via Euler--Maruyama with `Nt` time steps and resolution `dt`.
@@ -391,7 +395,7 @@ associated SDE via Euler--Maruyama with `Nt` time steps and resolution `dt`.
 The kwarg `method` is used to determine the influencer switching method. See
 [`influencer_switch_rates`](@ref) for more information.
 """
-function solve(omp::OpinionModelProblem{T}; Nt=200, dt=0.01,
+function simulate!(omp::OpinionModelProblem{T}; Nt=200, dt=0.01,
     seed=MersenneTwister(), echo_chamber::Bool=false) where {T}
     X, Y, Z, A, B, C = get_values(omp)
     σ, n, Γ, γ, = omp.p.σ, omp.p.n, omp.p.frictionM, omp.p.frictionI
@@ -409,7 +413,7 @@ function solve(omp::OpinionModelProblem{T}; Nt=200, dt=0.01,
     rZ = zeros(T, L, d, Nt)
     rC = BitArray{3}(undef, n, L, Nt)
     # Jump rates can be left uninitialzied
-    rR = Array{T, 3}(undef, n, L, Nt)
+    rR = Array{T,3}(undef, n, L, Nt)
 
     rX[:, :, begin] = X
     rY[:, :, begin] = Y
@@ -441,7 +445,7 @@ function solve(omp::OpinionModelProblem{T}; Nt=200, dt=0.01,
         R = view(rR, :, :, i)
         view(rC, :, :, i + 1) .= switch_influencer(C, X, Z, R, dt)
 
-        if echo_chamber 
+        if echo_chamber
             # Modify Agent-Agent interaction network
             A .= _ag_ag_echo_chamber(rC[:, :, i+1] |> BitMatrix)
         end
@@ -469,7 +473,7 @@ function plot_frame(X, Y, Z, B, C, t)
 
     p = scatter(eachcol(X[:, :, t])...,
         c=colors[c_idx],
-        m = shapes[s_idx],
+        m=shapes[s_idx],
         legend=:none,
         xlims=(-2, 2),
         ylims=(-2, 2)
@@ -477,10 +481,10 @@ function plot_frame(X, Y, Z, B, C, t)
 
     scatter!(p, eachcol(Z[:, :, t])...,
         m=:hexagon,
-        ms = 8,
+        ms=8,
         markerstrokecolor=:white,
         markerstrokewidth=4,
-        c = colors
+        c=colors
     )
 
     return p
