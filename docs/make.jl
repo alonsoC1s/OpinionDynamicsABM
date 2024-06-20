@@ -7,6 +7,7 @@ makedocs(;
     modules=[OpinionDynamicsABM],
     authors="Alonso Martínez Cisneros",
     sitename="OpinionDynamicsABM.jl",
+    draft = true,
     format=Documenter.HTML(;
         canonical="https://computationalhumanities.pages.zib.de/OpinionDynamicsABM.jl",
         edit_link="main",
@@ -15,4 +16,5 @@ makedocs(;
     pages=[
         "Home" => "index.md",
     ],
+    repo = GitLab("ComputationalHumanities", "OpinionDynamicsABM.jl")
 )
