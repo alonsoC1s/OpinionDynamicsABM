@@ -8,7 +8,7 @@ makedocs(;
     authors="Alonso Martínez Cisneros",
     sitename="OpinionDynamicsABM.jl",
     format=Documenter.HTML(;
-        canonical="https://amartine.gitlab.io/OpinionDynamicsABM.jl",
+        canonical="https://computationalhumanities.pages.zib.de/OpinionDynamicsABM.jl",
         edit_link="main",
         assets=String[],
     ),
