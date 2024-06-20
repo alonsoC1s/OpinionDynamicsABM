@@ -349,7 +349,7 @@ Simulates the Poisson point process that determines how agents change
 influencers based on the calculated switching rates. The keyword argument
 `method` determines how the process is simulated. If `method` == :other, the
 process is simulated with the rates calculated via
-[`influencer_switch_rate`](@ref), and if `method` == :luzie, the process is
+[`influencer_switch_rates`](@ref), and if `method` == :luzie, the process is
 simulated with the legacy approach that was used in the paper preprint.
 
 See also [`influencer_switch_rates`](@ref)

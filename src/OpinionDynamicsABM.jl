@@ -18,6 +18,7 @@ export
     plot_evolution,
     plot_frame,
     time_rate_tensor,
+    influencer_switch_rates,
     _ag_ag_echo_chamber,
     _media_network
 
