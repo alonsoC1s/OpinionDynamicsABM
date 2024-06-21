@@ -45,7 +45,7 @@ end
 encapsulates parameters and other properties of an Agent-Based model of Opinion
 Dynamics.
 """
-struct OpinionModelProblem{T<:Real}
+struct OpinionModelProblem{T<:AbstractFloat}
     p::ModelParams{T} # Model parameters
     X::AbstractVecOrMat{T} # Array of Agents' positions
     M::AbstractVecOrMat{T} # Array of Media positions
@@ -66,9 +66,22 @@ function Base.show(io::IO, omp::OpinionModelProblem{T}) where {T}
     )
 end
 
-function OpinionModelProblem(dom::Vararg{Tuple{T,T},N};
+function OpinionModelProblem(dom::Vararg{<:Tuple{Real, Real},D};
+# function OpinionModelProblem(dom::Tuple{Real, Real};
     p=ModelParams(), seed=MersenneTwister(),
-    AgAgNetF::Function = I -> trues(p.n, p.n)) where {N,T<:Real}
+    AgAgNetF::Function=I -> trues(p.n, p.n)) where {D <: Real}
+
+    @info "Promoting elements of domain tuples"
+    throw(ErrorException("Mixed-type tuples are not yet supported"))
+    # return OpinionModelProblem(promote(dom...), seed, AgAgNetF)
+end
+
+function OpinionModelProblem(dom::Vararg{Tuple{T,T},D};
+    p=ModelParams(), seed=MersenneTwister(),
+    AgAgNetF::Function=I -> trues(p.n, p.n)) where {D,T<:Real}
+
+    # We divide the domain into orthants, and each orthant has 1 influencer
+    p.L != 2^D && throw(ArgumentError("Number of influencers has to be 2^dim"))
 
     # Seeding the RNG
     Random.seed!(seed)
@@ -76,29 +89,30 @@ function OpinionModelProblem(dom::Vararg{Tuple{T,T},N};
     # Place agents uniformly distributed across the domain
     X = reduce(hcat, [rand(Uniform(t...), p.n) for t in dom]) # p.n × N matrix
 
-    return OpinionModelProblem(X; p = p, AgAgNetF = AgAgNetF)
-end
-
-# TODO: Implement OpinionModelProblem that doesn't take a domain, but rather an
-# initial distribution of agents.
-function OpinionModelProblem(initial_agents::AbstractVecOrMat{T};
-    p = ModelParams(), AgAgNetF::Function = I -> trues(p.n, p.n)) where {T<:Real}
-
     # We consider just 2 media outlets at the "corners"
     M = vcat(
-        fill(-one(T), (1, N)),
-        fill(one(T), (1, N))
-    ) # FIXME: Parametrize on eltype T instead of hard-coded 1.0
+        fill(-one(T), (1, D)),
+        fill(one(T), (1, D))
+    )
 
-    # We divide the domain into orthants, and each orthant has 1 influencer
-    p.L != 2^N && throw(ArgumentError("Number of influencers has to be 2^n"))
+    if D == 1
+        X = vec(X)
+        M = vec(M)
+    end
+
+    return OpinionModelProblem(X, M; p=p, AgAgNetF=AgAgNetF)
+end
+
+function OpinionModelProblem(agents_init::AbstractVecOrMat{T},
+    media_init::AbstractVecOrMat{T}; p=ModelParams(),
+    AgAgNetF::Function=I -> trues(p.n, p.n)) where {T<:AbstractFloat}
 
     # Create Agent-Influence network (n × L) by grouping individuals into quadrants
     # i,j-th entry is true if i-th agent follows the j-th influencer
-    AgInfNet = _orthantize(X) |> BitMatrix
+    AgInfNet = _orthantize(agents_init) |> BitMatrix
 
     # Placing the influencers as the barycenter of agents per orthant
-    I = _place_influencers(X, AgInfNet)
+    I = _place_influencers(agents_init, AgInfNet)
 
     # Defining the Agent-Agent interaction matrix as a function of the
     # Agent-Influencer matrix. In the default case, the matrix represents a
@@ -109,13 +123,7 @@ function OpinionModelProblem(initial_agents::AbstractVecOrMat{T};
     # Assign agents to media outlet randomly s.t. every agent is connected to 1 and only 1 media.
     AgMedNet = _media_network(p.n, p.M)
 
-    if N == 1
-        X = vec(X)
-        M = vec(M)
-        I = vec(I)
-    end
-
-    return OpinionModelProblem(p, X, M, I, AgInfNet, AgAgNet, AgMedNet)
+    return OpinionModelProblem(p, agents_init, media_init, I, AgInfNet, AgAgNet, AgMedNet)
 end
 
 function get_values(omp::OpinionModelProblem)
