@@ -66,7 +66,7 @@ function Base.show(io::IO, omp::OpinionModelProblem{T}) where {T}
     )
 end
 
-function OpinionModelProblem(dom::Vararg{<:Tuple{Real, Real},D};
+function OpinionModelProblem(dom::Vararg{Tuple{Real, Real},D};
 # function OpinionModelProblem(dom::Tuple{Real, Real};
     p=ModelParams(), seed=MersenneTwister(),
     AgAgNetF::Function=I -> trues(p.n, p.n)) where {D <: Real}
