@@ -20,15 +20,16 @@ end
 
 @testset "Test simulations" begin
     fixed_seed = 210624
-    omp = OpinionModelProblem((-2.0, 2.0), (-2.0, 2.0), seed = fixed_seed)
-    X, Y, Z, _, R = simulate!(omp, seed = fixed_seed)
+    omp = OpinionModelProblem((-2.0, 2.0), (-2.0, 2.0); seed=fixed_seed)
+    X, Y, Z, _, R = simulate!(omp; seed=fixed_seed)
 
-    comp(d1, d2) = keys(d1)==keys(d2) && all([ v1≈v2 for (v1,v2) in zip(values(d1), values(d2))])
+    comp(d1, d2) = keys(d1) == keys(d2) &&
+                   all([v1 ≈ v2 for (v1, v2) in zip(values(d1), values(d2))])
 
     rsp = Dict("X" => X, "Y" => Y, "Z" => Z, "R" => R)
 
     # Testing agent's positions
-    @test_reference "reftest-files/resp.jld2" rsp by=comp
+    @test_reference "reftest-files/resp.jld2" rsp by = comp
 end
 
 end # TestOpinionDynamics
