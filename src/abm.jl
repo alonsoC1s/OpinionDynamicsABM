@@ -43,8 +43,7 @@ end
 """
     OpinionModelProblem
 
-encapsulates parameters and other properties of an Agent-Based model of Opinion
-Dynamics.
+encapsulates parameters and other properties of an Agent-Based model of Opinion Dynamics.
 """
 struct OpinionModelProblem{T<:AbstractFloat}
     p::ModelParams{T} # Model parameters
@@ -109,10 +108,9 @@ function OpinionModelProblem(agents_init::AbstractVecOrMat{T},
     # Placing the influencers as the barycenter of agents per orthant
     I = _place_influencers(agents_init, AgInfNet)
 
-    # Defining the Agent-Agent interaction matrix as a function of the
-    # Agent-Influencer matrix. In the default case, the matrix represents a
-    # fully connected network. In other cases, the adjacency is computed with
-    # the adjacency to influencers.
+    # Defining the Agent-Agent interaction matrix as a function of the Agent-Influencer
+    # matrix. In the default case, the matrix represents a fully connected network. In other
+    # cases, the adjacency is computed with the adjacency to influencers.
     AgAgNet = AgAgNetF(AgInfNet)
 
     # Assign agents to media outlet randomly s.t. every agent is connected to 1 and only 1 media.
@@ -150,8 +148,8 @@ end
 """
     AgAg_attraction(omp::OpinionModelProblem, φ = x -> exp(-x))
 
-Calculate the force of attraction on agents exerted by other agents they are
-connected to, with φ the scaling function.
+Calculate the force of attraction on agents exerted by other agents they are connected to,
+with φ the scaling function.
 """
 function AgAg_attraction(omp::OpinionModelProblem{T}; φ=x -> exp(-x)) where {T}
     X, A = omp.X, omp.AgAgNet
@@ -164,8 +162,8 @@ function MedAg_attraction(X::T, M::T, B::BitMatrix) where {T<:AbstractVecOrMat}
 
     # Detect early if an agent is not connected to any Media Outlets
     if !(all(any(B; dims=2)))
-        throw(ErrorException("Model violation detected: An agent is disconnected " *
-                             "from all media outlets."))
+        throw(ErrorException("Model violation detected: An agent is disconnected from " *
+                             "all media outlets."))
     end
 
     for i in axes(X, 1)
@@ -190,8 +188,8 @@ function InfAg_attraction(X::T, Z::T, C::BitMatrix) where {T<:AbstractVecOrMat}
 
     # Detect early if an agent doesn't follow any influencers
     if !(all(any(C; dims=2)))
-        throw(ErrorException("Model violation detected: An Agent doesn't follow " *
-                             "any influencers"))
+        throw(ErrorException("Model violation detected: An Agent doesn't follow any  " *
+                             "influencers"))
     end
 
     for i in axes(X, 1)
@@ -216,8 +214,8 @@ end
 """
     follower_average(X, Network::BitMatrix)
 
-Calculates the center of mass of the agents connected to the same media or
-influencer as determined by the adjacency matrix `Network`.
+Calculates the center of mass of the agents connected to the same media or influencer as
+determined by the adjacency matrix `Network`.
 """
 function follower_average(X::AbstractVecOrMat, Network::BitMatrix)
     mass_centers = zeros(size(Network, 2), size(X, 2))
@@ -250,8 +248,8 @@ end
 """
     agent_drift(X, M, I, A, B, C, p)
 
-Calculates the drift force acting on agents, which is the weighted sum of the
-Agent-Agent, Media-Agent and Influencer-Agent forces of attraction.
+Calculates the drift force acting on agents, which is the weighted sum of the Agent-Agent,
+Media-Agent and Influencer-Agent forces of attraction.
 """
 function agent_drift(X::T, M::T, I::T, A::Bm, B::Bm, C::Bm,
                      p::ModelParams) where {T<:AbstractVecOrMat,Bm<:BitMatrix}
@@ -278,11 +276,11 @@ end
 
 """
     influencer_drift(X, Z, C, g = identity)
-    ;;; 1
+
 Calculates the drift force action on influencers as described in eq. (5).
 """
-function influencer_drift(X::T, Z::T, C::Bm; g=identity) where 
-    {T<:AbstractVecOrMat,Bm<:BitMatrix}
+function influencer_drift(X::T, Z::T, C::Bm;
+                          g=identity) where {T<:AbstractVecOrMat,Bm<:BitMatrix}
     g_full(x) = ismissing(x) ? 0 : g(x)
     force = similar(Z)
     x_hat = follower_average(X, C)
@@ -294,9 +292,9 @@ end
 """
     followership_ratings(B, C)
 
-Calculates the rate of individuals that follow both the `m`-th media outlet and
-the `l`-th influencer. The `m,l`-th entry of the output corresponds to the
-proportion of agents that follows `m` and `l`.
+Calculates the rate of individuals that follow both the `m`-th media outlet and the `l`-th
+influencer. The `m,l`-th entry of the output corresponds to the proportion of agents that
+follows `m` and `l`.
 
 # Arguments:
 - `B::BitMatrix`: Adjacency matrix of the agents to the media outlets
@@ -318,9 +316,9 @@ end
 """
     influencer_switch_rates(X, Z, B, C, η; ψ = x -> exp(-x), r = relu)
 
-Returns an n × L matrix where the `j,l`-th entry contains the rate λ of the
-Poisson point process modeling how agent `j` switches influencers to `l`. Note
-that this is not the same as ``Λ_{m}^{→l}``.
+Returns an n × L matrix where the `j,l`-th entry contains the rate λ of the Poisson point
+process modeling how agent `j` switches influencers to `l`. Note that this is not the
+same as ``Λ_{m}^{→l}``.
 """
 function influencer_switch_rates(X::T, Z::T, B::Bm, C::Bm, η; ψ=x -> exp(-x),
                                  r=relu) where {T<:AbstractVecOrMat,Bm<:BitMatrix}
@@ -352,12 +350,11 @@ end
 """
     switch_influencer(C, X, Z, B, η, dt)
 
-Simulates the Poisson point process that determines how agents change
-influencers based on the calculated switching rates. The keyword argument
-`method` determines how the process is simulated. If `method` == :other, the
-process is simulated with the rates calculated via
-[`influencer_switch_rates`], and if `method` == :luzie, the process is
-simulated with the legacy approach that was used in the paper preprint.
+Simulates the Poisson point process that determines how agents change influencers based on
+the calculated switching rates. The keyword argument `method` determines how the process
+is simulated. If `method` == :other, the process is simulated with the rates calculated
+via [`influencer_switch_rates`], and if `method` == :luzie, the process is simulated with
+the legacy approach that was used in the paper preprint.
 
 See also [`influencer_switch_rates`]
 """
@@ -391,8 +388,8 @@ end
 """
     simulate!(omp::OpinionModelProblem; Nt=100, dt=0.01, method=:other)
 
-Simulates the evolution of the Opinion Dynamics problem `omp` by solving the
-associated SDE via Euler--Maruyama with `Nt` time steps and resolution `dt`.
+Simulates the evolution of the Opinion Dynamics problem `omp` by solving the associated
+SDE via Euler--Maruyama with `Nt` time steps and resolution `dt`.
 
 The kwarg `method` is used to determine the influencer switching method. See
 [`influencer_switch_rates`] for more information.
@@ -430,7 +427,7 @@ function simulate!(omp::OpinionModelProblem{T};
         X = view(rX, :, :, i)
         Y = view(rY, :, :, i)
         Z = view(rZ, :, :, i)
-        C = BitMatrix(view(rC, :, :, i))
+        C = view(rC, :, :, i) |> BitMatrix
 
         # Agents movement
         FA = agent_drift(X, Y, Z, A, B, C, omp.p)
@@ -494,7 +491,8 @@ function plot_frame(X, Y, Z, B, C, t)
 end
 
 function plot_lambda_radius(X, Y, Z, B, C, t)
-    rates = influencer_switch_rates(X[:, :, t], Z[:, :, t], B, BitMatrix(C[:, :, t]), 15.0)
+    rates = influencer_switch_rates(X[:, :, t], Z[:, :, t], B, C[:, :, t] |> BitMatrix,
+                                    15.0)
 
     subplots = [plot() for _ in 1:size(Z, 1)]
 
@@ -507,7 +505,8 @@ function plot_lambda_radius(X, Y, Z, B, C, t)
 end
 
 function plot_switch_propensity(X, Y, Z, B, C, t)
-    rates = influencer_switch_rates(X[:, :, t], Z[:, :, t], B, BitMatrix(C[:, :, t]), 15.0)
+    rates = influencer_switch_rates(X[:, :, t], Z[:, :, t], B, C[:, :, t] |> BitMatrix,
+                                    15.0)
 
     propensity = sum(rates; dims=2)
 
