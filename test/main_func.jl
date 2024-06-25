@@ -29,6 +29,7 @@ end
     rsp = Dict("X" => X, "Y" => Y, "Z" => Z, "R" => R)
 
     # Testing agent's positions
+    # FIXME: Compare array by array
     @test_reference "reftest-files/resp.jld2" rsp by = comp
 end
 

@@ -85,28 +85,32 @@ function OpinionModelProblem(dom::Vararg{Tuple{T,T},D}; p=ModelParams(),
     # Place agents uniformly distributed across the domain
     X = reduce(hcat, [rand(Uniform(t...), p.n) for t in dom]) # p.n × N matrix
 
-    # We consider just 2 media outlets at the "corners"
-    M = vcat(fill(-one(T), (1, D)), fill(one(T), (1, D)))
+    # Create Agent-Influence network (n × L) by grouping individuals into quadrants
+    # i,j-th entry is true if i-th agent follows the j-th influencer
+    AgInfNet = _orthantize(X) |> BitMatrix
+
+    # Placing the influencers as the barycenter of agents per orthant
+    I = _place_influencers(X, AgInfNet)
 
     if D == 1
         X = vec(X)
         M = vec(M)
     end
 
-    return OpinionModelProblem(X, M; p=p, AgAgNetF=AgAgNetF)
+    return OpinionModelProblem(X, I; p=p, AgAgNetF=AgAgNetF)
 end
 
 function OpinionModelProblem(agents_init::AbstractVecOrMat{T},
-                             media_init::AbstractVecOrMat{T};
-                             p=ModelParams(),
+                             influencers_init::AbstractVecOrMat{T};
+                             p=ModelParams(; L=size(influencers_init, 1),
+                                           n=size(agents_init, 1)),
                              AgAgNetF::Function=I -> trues(p.n, p.n)) where {T<:AbstractFloat}
+    p.L != size(influencers_init, 1) &&
+        throw(ArgumentError("`influencers_init` defined more influencers than conteplated in the parameters $(p)"))
 
     # Create Agent-Influence network (n × L) by grouping individuals into quadrants
     # i,j-th entry is true if i-th agent follows the j-th influencer
     AgInfNet = _orthantize(agents_init) |> BitMatrix
-
-    # Placing the influencers as the barycenter of agents per orthant
-    I = _place_influencers(agents_init, AgInfNet)
 
     # Defining the Agent-Agent interaction matrix as a function of the Agent-Influencer
     # matrix. In the default case, the matrix represents a fully connected network. In other
@@ -116,7 +120,12 @@ function OpinionModelProblem(agents_init::AbstractVecOrMat{T},
     # Assign agents to media outlet randomly s.t. every agent is connected to 1 and only 1 media.
     AgMedNet = _media_network(p.n, p.M)
 
-    return OpinionModelProblem(p, agents_init, media_init, I, AgInfNet, AgAgNet, AgMedNet)
+    # We consider just 2 media outlets at the "corners"
+    D = size(agents_init, 2)
+    M = vcat(fill(-one(T), (1, D)), fill(one(T), (1, D)))
+
+    return OpinionModelProblem(p, agents_init, M, influencers_init, AgInfNet, AgAgNet,
+                               AgMedNet)
 end
 
 function get_values(omp::OpinionModelProblem)
@@ -456,16 +465,24 @@ function simulate!(omp::OpinionModelProblem{T};
     return rX, rY, rZ, rC, rR
 end
 
-function plot_evolution(X, Y, Z, B, C)
+# FIXME: Parametrize on dimension of the problem. If dim != 2, none of these should work
+
+theme(:ggplot2)
+
+function plot_evolution(X, Y, Z, B, C, filename)
     T = size(X, 3)
+    colwise_mins = mapslices(minimum, X; dims=1)
+    colwise_maxs = mapslices(maximum, X; dims=1)
+
     anim = @animate for t in 1:T
-        plot_frame(X, Y, Z, B, C, t)
+        plot_frame(X, Y, Z, B, C, t; mins=colwise_mins, maxs=colwise_maxs)
     end
 
-    return gif(anim; fps=15)
+    return gif(anim, filename; fps=15)
 end
 
-function plot_frame(X, Y, Z, B, C, t)
+function plot_frame(X, Y, Z, B, C, t; mins=mapslices(minimum, X; dims=1),
+                    maxs=mapslices(maximum, X; dims=1))
     colors = [:red, :green, :blue, :black]
     shapes = [:ltriangle, :rtriangle]
 
@@ -476,8 +493,8 @@ function plot_frame(X, Y, Z, B, C, t)
                 c=colors[c_idx],
                 m=shapes[s_idx],
                 legend=:none,
-                xlims=(-2, 2),
-                ylims=(-2, 2),)
+                xlims=(mins[1], maxs[1]),
+                ylims=(mins[2], maxs[2]))
 
     scatter!(p,
              eachcol(Z[:, :, t])...;
