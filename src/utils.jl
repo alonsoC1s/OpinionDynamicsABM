@@ -35,7 +35,7 @@ Classifies the `n` agents in X into the 2^`N` orthants (or quadrants) by
 returning an adjacency matrix of size n × 2^`N` where the i-th row has a single
 true entry representing which orthant the i-th agent is in.
 
-FIXME: Might be overcomplicated. Perhaps achieved with A .> [0, 0], (simplified idea)
+FIXME: Might be overcomplicated. Perhaps achieved with `A .> [0, 0]` (simplified idea)
 """
 function _orthantize(X)
     N = size(X, 2) # Dimensions of the problem (i.e N if R^N is the problem space)
