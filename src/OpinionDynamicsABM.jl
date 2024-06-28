@@ -19,7 +19,8 @@ export _boolean_combinator,
        time_rate_tensor,
        influencer_switch_rates,
        _ag_ag_echo_chamber,
-       _media_network
+       _media_network,
+       plot_snapshot
 
 include("utils.jl")
 include("abm.jl")

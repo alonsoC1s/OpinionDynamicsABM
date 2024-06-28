@@ -106,7 +106,12 @@ function OpinionModelProblem(agents_init::AbstractVecOrMat{T},
                                            n=size(agents_init, 1)),
                              AgAgNetF::Function=I -> trues(p.n, p.n)) where {T<:AbstractFloat}
     p.L != size(influencers_init, 1) &&
-        throw(ArgumentError("`influencers_init` defined more influencers than conteplated in the parameters $(p)"))
+        throw(ArgumentError("`influencers_init` defined more influencers than contemplated" *
+                            "in the parameters $(p)"))
+
+    p.n != size(agents_init, 1) &&
+        throw(ArgumentError("`agents_init` defined more agents than contemplated in the" *
+                            "parameters $(p)"))
 
     # Create Agent-Influence network (n × L) by grouping individuals into quadrants
     # i,j-th entry is true if i-th agent follows the j-th influencer
@@ -469,19 +474,8 @@ end
 
 theme(:ggplot2)
 
-function plot_evolution(X, Y, Z, B, C, filename)
-    T = size(X, 3)
-    colwise_mins = mapslices(minimum, X; dims=1)
-    colwise_maxs = mapslices(maximum, X; dims=1)
-
-    anim = @animate for t in 1:T
-        plot_frame(X, Y, Z, B, C, t; mins=colwise_mins, maxs=colwise_maxs)
-    end
-
-    return gif(anim, filename; fps=15)
-end
-
-function plot_frame(X, Y, Z, B, C, t; mins=mapslices(minimum, X; dims=1),
+function plot_frame(X, Y, Z, B, C, t; title="Simulation",
+                    mins=mapslices(minimum, X; dims=1),
                     maxs=mapslices(maximum, X; dims=1))
     colors = [:red, :green, :blue, :black]
     shapes = [:ltriangle, :rtriangle]
@@ -502,9 +496,45 @@ function plot_frame(X, Y, Z, B, C, t; mins=mapslices(minimum, X; dims=1),
              ms=8,
              markerstrokecolor=:white,
              markerstrokewidth=4,
-             c=colors,)
+             c=colors,
+             title="$(title) at step $(t)",)
 
     return p
+end
+
+function plot_evolution(X, Y, Z, B, C, filename; title="",)
+    T = size(X, 3)
+    colwise_mins = mapslices(minimum, X; dims=1)
+    colwise_maxs = mapslices(maximum, X; dims=1)
+
+    anim = @animate for t in 1:T
+        plot_frame(X, Y, Z, B, C, t; title=title, mins=colwise_mins, maxs=colwise_maxs)
+    end
+
+    return gif(anim, filename; fps=15)
+end
+
+function plot_snapshot(X, Y, Z, B, C, filename; title="")
+    T = size(X, 3)
+    colwise_mins = mapslices(minimum, X; dims=1)
+    colwise_maxs = mapslices(maximum, X; dims=1)
+
+    # First, last and middle indices
+    start = firstindex(X, 3)
+    finish = lastindex(X, 3)
+    middle = round(Int, (finish - start) / 2)
+
+    frame_1st = plot_frame(X, Y, Z, B, C, start; mins=colwise_mins,
+                           maxs=colwise_maxs)
+    frame_mid = plot_frame(X, Y, Z, B, C, middle; mins=colwise_mins,
+                           maxs=colwise_maxs)
+    frame_end = plot_frame(X, Y, Z, B, C, finish; mins=colwise_mins,
+                           maxs=colwise_maxs)
+
+    l = @layout [a b c]
+    plot(frame_1st, frame_mid, frame_end; layout=l, size = (1000, 618), plot_title = title)
+
+    return savefig(filename)
 end
 
 function plot_lambda_radius(X, Y, Z, B, C, t)
