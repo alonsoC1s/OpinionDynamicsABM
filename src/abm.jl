@@ -8,8 +8,8 @@ Wrapper for the Opinion Dynamics model parameters. The available parameters are:
 - `n::Int`: number of agents
 - `η`: constant for the rate of influencer hopping for agents
 - `a`: interaction strength between agents
-- `b`: interaction strength between agents and influencers
-- `c`: interaction strength between agents and media outlets
+- `b`: interaction strength between agents and media outlets
+- `c`: interaction strength between agents and influencers
 - `σ`: noise constant of the agent's stochastic movement
 - `σ̂`: (\\sigma\\hat) noise constant for influencer movement
 - `σ̃` (\\sigma\\tilde) noise constant for media movement
@@ -138,24 +138,31 @@ function get_values(omp::OpinionModelProblem)
 end
 
 function AgAg_attraction(X::AbstractVecOrMat{T}, A::BitMatrix; φ=x -> exp(-x)) where {T}
-    force = similar(X)
-    for j in axes(force, 1)
-        neighboors = findall(A[j, :])
+    # Pre allocating outputs
+    I, D = size(X, 1), size(X, 2)
+    J = size(X, 1) # Cheating. This only works for fully connected A
 
-        if isempty(neighboors)
-            force[j, :] = zeros(eltype(X), 1, 2)
-        else
-            fi = zeros(eltype(X), 1, 2)
-            wsum = zero(eltype(X))
-            for neighboor_idx in neighboors
-                d = X[neighboor_idx, :] - X[j, :]
-                w = φ(norm(d))
-                fi = fi + w * d'
-                wsum = wsum + w
-            end
-            force[j, :] = fi ./ wsum
+    force = similar(X)
+    Dijd = similar(X, I, J, D)
+    Wij = similar(X, I, J)
+
+    for i in axes(force, 1) # Iterate over agents
+        agent = view(X, i, :)
+        neighbors = findall(@view A[i, :])
+
+        # Distance between agent and neighbor
+        for j in neighbors # |neighbors| <= |J| so no index-out-of-bounds
+            neighbor = view(X, j, :)
+            Dij = view(Dijd, i, j, :)
+            Dij .= neighbor .- agent
+
+            # Filling Wij in the same loop
+            view(Wij, i, j) .= φ(norm(Dij))
         end
     end
+
+    # Calculate the attraction force per dimension with Einstein sum notation
+    force .= ein"ijd,ij -> id"(Dijd, Wij)
     return force
 end
 
@@ -443,6 +450,7 @@ function simulate!(omp::OpinionModelProblem{T};
         Z = view(rZ, :, :, i)
         C = view(rC, :, :, i) |> BitMatrix
 
+        # FIXME: Try using the dotted operators to fuse vectorized operations
         # Agents movement
         FA = agent_drift(X, Y, Z, A, B, C, omp.p)
         rX[:, :, i + 1] .= X + dt * FA + σ * sqrt(dt) * randn(n, d)
@@ -532,7 +540,7 @@ function plot_snapshot(X, Y, Z, B, C, filename; title="")
                            maxs=colwise_maxs)
 
     l = @layout [a b c]
-    plot(frame_1st, frame_mid, frame_end; layout=l, size = (1000, 618), plot_title = title)
+    plot(frame_1st, frame_mid, frame_end; layout=l, size=(1000, 618), plot_title=title)
 
     return savefig(filename)
 end

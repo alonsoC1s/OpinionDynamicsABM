@@ -2,7 +2,7 @@ module OpinionDynamicsABM
 
 # Write your package code here.
 # Imports
-using LinearAlgebra, Plots, Random, Distributions, Statistics
+using LinearAlgebra, Plots, Random, Distributions, Statistics, OMEinsum
 
 # Exports...
 export _boolean_combinator,
