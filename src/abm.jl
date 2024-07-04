@@ -150,6 +150,11 @@ function AgAg_attraction(X::AbstractVecOrMat{T}, A::BitMatrix; φ=x -> exp(-x)) 
         agent = view(X, i, :)
         neighbors = findall(@view A[i, :])
 
+        if isempty(neighbors)
+            view(force, i, :) .= zeros(T, 1, D)
+            continue
+        end
+
         # Distance between agent and neighbor
         for j in neighbors # |neighbors| <= |J| so no index-out-of-bounds
             neighbor = view(X, j, :)
@@ -159,6 +164,9 @@ function AgAg_attraction(X::AbstractVecOrMat{T}, A::BitMatrix; φ=x -> exp(-x)) 
             # Filling Wij in the same loop
             view(Wij, i, j) .= φ(norm(Dij))
         end
+
+        # row-normalize W to get 1/sum(W[i, j] for j)
+        view(Wij, i, :) .= view(Wij, i, :) ./ sum(Wij[i, :])
     end
 
     # Calculate the attraction force per dimension with Einstein sum notation
@@ -435,8 +443,9 @@ function simulate!(omp::OpinionModelProblem{T};
     rY = zeros(T, M, d, Nt)
     rZ = zeros(T, L, d, Nt)
     rC = BitArray{3}(undef, n, L, Nt)
-    # Jump rates can be left uninitialzied
-    rR = Array{T,3}(undef, n, L, Nt)
+    # Jump rates can be left uninitialzied. Not defined for the last time step
+    # rR = Array{T,3}(undef, n, L, Nt-1)
+    rR = Array{T,3}(undef, n, L, Nt - 1)
 
     rX[:, :, begin] = X
     rY[:, :, begin] = Y
