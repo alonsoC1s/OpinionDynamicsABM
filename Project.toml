@@ -15,11 +15,9 @@ Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 julia = "1.6.7"
 
 [extras]
-Arrow = "69666777-d1a9-59fb-9406-91d4454c9d45"
-CSVFiles = "5d742f6a-9f54-50ce-8119-2520741973ca"
-JLD2 = "033835bb-8acc-5ee8-8aae-3f567f8a3819"
+NPZ = "15e1cf62-19b3-5cfa-8e77-841668bca605"
 ReferenceTests = "324d217c-45ce-50fc-942e-d289b448e8cf"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["Test", "ReferenceTests", "JLD2", "Arrow", "CSVFiles"]
+test = ["Test", "ReferenceTests", "NPZ"]
