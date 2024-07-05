@@ -1,5 +1,5 @@
 module TestOpinionDynamics
-using Test, JLD2, ReferenceTests, OpinionDynamicsABM
+using Test, ReferenceTests, OpinionDynamicsABM
 
 @testset "Params and Problem initializers" begin
     N = 250 # Number of agents
