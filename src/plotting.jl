@@ -109,6 +109,20 @@ function evolve_compare(s1::A, s2::B, filename;
     return gif(anim, filename; fps=15)
 end
 
+function snapshots(oms::ModelSimulation; title = "Simulation")
+    start = 1
+    finish = oms.nsteps
+    middle = round(Int, (finish - start) / 2)
+
+    frame_1st = frame(oms, start)
+    frame_mid = frame(oms, middle)
+    frame_end = frame(oms, finish)
+
+    l = @layout [a b c]
+
+    return plot(frame_1st, frame_mid, frame_end; layout=l, plot_title=title)
+end
+
 # function plot_snapshot(X, Y, Z, B, C, filename; title="")
 #     T = size(X, 3)
 #     colwise_mins = mapslices(minimum, X; dims=1)
