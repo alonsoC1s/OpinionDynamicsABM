@@ -25,4 +25,6 @@ export _boolean_combinator,
 include("utils.jl")
 include("abm.jl")
 
+theme(:ggplot2)
+
 end

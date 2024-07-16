@@ -137,6 +137,9 @@ function get_values(omp::OpinionModelProblem)
     return omp.X, omp.M, omp.I, omp.AgAgNet, omp.AgMedNet, omp.AgInfNet
 end
 
+# This could perhaps be optimized even further. One of the possibly good ideas would be to
+# allocate the forces vector once at the E-M solver level and pass a view to the
+# attraction functions. This would reduce memory usage by making everything in-place.
 function AgAg_attraction(X::AbstractVecOrMat{T}, A::BitMatrix; φ=x -> exp(-x)) where {T}
     # Pre allocating outputs
     I, D = size(X, 1), size(X, 2)
@@ -149,6 +152,7 @@ function AgAg_attraction(X::AbstractVecOrMat{T}, A::BitMatrix; φ=x -> exp(-x)) 
     for i in axes(force, 1) # Iterate over agents
         agent = view(X, i, :)
         neighbors = findall(@view A[i, :])
+        normalization_constant = zero(T)
 
         if isempty(neighbors)
             view(force, i, :) .= zeros(T, 1, D)
@@ -162,11 +166,13 @@ function AgAg_attraction(X::AbstractVecOrMat{T}, A::BitMatrix; φ=x -> exp(-x)) 
             Dij .= neighbor .- agent
 
             # Filling Wij in the same loop
-            view(Wij, i, j) .= φ(norm(Dij))
+            w = φ(norm(Dij))
+            view(Wij, i, j) .= w
+            normalization_constant += w
         end
 
         # row-normalize W to get 1/sum(W[i, j] for j)
-        view(Wij, i, :) .= view(Wij, i, :) ./ sum(Wij[i, :])
+        view(Wij, i, :) .= view(Wij, i, :) ./ normalization_constant
     end
 
     # Calculate the attraction force per dimension with Einstein sum notation
@@ -489,7 +495,6 @@ end
 
 # FIXME: Parametrize on dimension of the problem. If dim != 2, none of these should work
 
-theme(:ggplot2)
 
 function plot_frame(X, Y, Z, B, C, t; title="Simulation",
                     mins=mapslices(minimum, X; dims=1),
@@ -502,7 +507,7 @@ function plot_frame(X, Y, Z, B, C, t; title="Simulation",
 
     p = scatter(eachcol(X[:, :, t])...;
                 c=colors[c_idx],
-                m=shapes[s_idx],
+                # m=shapes[s_idx],
                 legend=:none,
                 xlims=(mins[1], maxs[1]),
                 ylims=(mins[2], maxs[2]))
@@ -510,9 +515,9 @@ function plot_frame(X, Y, Z, B, C, t; title="Simulation",
     scatter!(p,
              eachcol(Z[:, :, t])...;
              m=:hexagon,
-             ms=8,
+             ms=6,
              markerstrokecolor=:white,
-             markerstrokewidth=4,
+             markerstrokewidth=3,
              c=colors,
              title="$(title) at step $(t)",)
 
