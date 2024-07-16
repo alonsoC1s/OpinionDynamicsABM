@@ -4,7 +4,7 @@ CurrentModule = OpinionDynamicsABM
 
 # OpinionDynamicsABM
 
-Documentation for [OpinionDynamicsABM](https://github.com/amartine/OpinionDynamicsABM.jl).
+Documentation for OpinionDynamicsABM.
 
 ```@index
 ```
