@@ -1,6 +1,6 @@
 using OpinionDynamicsABM, Test
 
-my_tests = ["utils.jl"]
+my_tests = ["utils.jl", "main_func.jl"]
 
 @info "Running tests"
 
