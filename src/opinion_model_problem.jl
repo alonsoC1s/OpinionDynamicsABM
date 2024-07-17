@@ -206,7 +206,7 @@ function OpinionModelProblem{T,D}(X₀::AbstractArray{T},
     # Defining the Agent-Agent interaction matrix as a function of the Agent-Influencer
     # matrix. In the default case, the matrix represents a fully connected network. In other
     # cases, the adjacency is computed with the adjacency to influencers.
-    A = AgAgNetF(AgInfNet)
+    A = AgAgNetF(C)
 
     # Assign agents to media outlet randomly s.t. every agent is connected to 1 and only 1 media.
     B = _media_network(p.n, p.M)
