@@ -497,17 +497,13 @@ function drift(du, u, p, t)
     # Defining the indices for readability
     # FIXME: Broken offsets. Do it properly
     agents = CartesianIndices((firstindex(u):p.n, axes(u, 2)))
-    influencers = CartesianIndices((p.n+1:p.L, axes(u,2)))
-    media = CartesianIndices((p.L+1:p.M, axes(u, 2)))
-
-    @info agents
-    @info influencers
-    @info media
+    influencers = CartesianIndices((p.n+1:p.n+p.L, axes(u,2)))
+    media = CartesianIndices((p.n+p.L+1:size(u, 1), axes(u, 2)))
 
     # Assigning variable names to vector of solutions for readability
     X = @view u[agents]
-    Y = @view u[influencers]
-    Z = @view u[media]
+    Y = @view u[media]
+    Z = @view u[influencers]
 
     # Agents SDE
     du[agents] .= agent_drift(X, Y, Z, p.A, p.B, p.C, p.p)
