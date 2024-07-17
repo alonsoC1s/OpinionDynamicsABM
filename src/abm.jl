@@ -286,12 +286,12 @@ end
 Calculates the drift force acting on agents, which is the weighted sum of the Agent-Agent,
 Media-Agent and Influencer-Agent forces of attraction.
 """
-function agent_drift(X::T, M::T, I::T, A::Bm, B::Bm, C::Bm,
+function agent_drift(X::T, Y::T, Z::T, A::Bm, B::Bm, C::Bm,
                      p::ModelParams) where {T<:AbstractVecOrMat,Bm<:BitMatrix}
     a, b, c = p.a, p.b, p.c
     return a * AgAg_attraction(X, A) +
-           b * MedAg_attraction(X, M, B) +
-           c * InfAg_attraction(X, I, C)
+           b * MedAg_attraction(X, Y, B) +
+           c * InfAg_attraction(X, Z, C)
 end
 
 """
@@ -492,6 +492,46 @@ function simulate!(omp::OpinionModelProblem{T};
 
     return rX, rY, rZ, rC, rR
 end
+
+function drift(du, u, p, t)
+    # Defining the indices for readability
+    # FIXME: Broken offsets. Do it properly
+    agents = CartesianIndices((firstindex(u):p.n, axes(u, 2)))
+    influencers = CartesianIndices((p.n+1:p.L, axes(u,2)))
+    media = CartesianIndices((p.L+1:p.M, axes(u, 2)))
+
+    @info agents
+    @info influencers
+    @info media
+
+    # Assigning variable names to vector of solutions for readability
+    X = @view u[agents]
+    Y = @view u[influencers]
+    Z = @view u[media]
+
+    # Agents SDE
+    du[agents] .= agent_drift(X, Y, Z, p.A, p.B, p.C, p.p)
+
+    # Influencer SDE
+    du[influencers] .= influencer_drift(X, Z, p.C)
+
+    # Media drift
+    du[media] .= media_drift(X, Y, p.B)
+    
+end
+
+function noise(du, u, p, t)
+    # Defining the indices for readability
+    agents = CartesianIndices((firstindex(u):p.n, axes(du, 2)))
+    influencers = CartesianIndices((p.n+1:p.L, axes(du,2)))
+    media = CartesianIndices((p.L+1:p.M, axes(du, 2)))
+    
+    # Additive noise
+    du[agents] .= p.σ
+    du[influencers] .= p.σ̂
+    du[media] .= p.σ̃
+end
+
 
 # FIXME: Parametrize on dimension of the problem. If dim != 2, none of these should work
 

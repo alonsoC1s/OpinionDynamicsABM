@@ -20,7 +20,9 @@ export _boolean_combinator,
        influencer_switch_rates,
        _ag_ag_echo_chamber,
        _media_network,
-       plot_snapshot
+       plot_snapshot,
+       drift,
+       noise
 
 include("utils.jl")
 include("abm.jl")
