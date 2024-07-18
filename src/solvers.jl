@@ -4,9 +4,6 @@
 
 Simulates the evolution of the Opinion Dynamics problem `omp` by solving the associated
 SDE via Euler--Maruyama with `Nt` time steps and resolution `dt`.
-
-The kwarg `method` is used to determine the influencer switching method. See
-[`influencer_switch_rates`] for more information.
 """
 function simulate!(omp::OpinionModelProblem{T};
                    Nt=200,
@@ -128,11 +125,7 @@ true_condition(u, t, integrator) = true
 
 influencer_switching_callback = DiscreteCallback(true_condition, influencer_switch_affect!)
 
-function simulate!(omp::OpinionModelProblem{T}, time::Tuple{T,T};
-                   seed=MersenneTwister()) where {T}
-    # Seeding the RNG
-    Random.seed!(seed)
-
+function build_sdeproblem(omp::OpinionModelProblem{T}, time::Tuple{T, T}) where {T}
     p = omp.p
     # Stack all important parameters to be fed to the integrator
     P = (L=p.L, M=p.M, n=p.n, η=p.η, a=p.a, b=p.b, c=p.c, σ=p.σ, σ̂=p.σ̂, σ̃=p.σ̃,
@@ -140,6 +133,22 @@ function simulate!(omp::OpinionModelProblem{T}, time::Tuple{T,T};
 
     u₀ = vcat(omp.X, omp.I, omp.M)
 
-    problem = SDEProblem(drift, noise, u₀, time, P)
+    return SDEProblem(drift, noise, u₀, time, P)
+end
+
+function simulate!(omp::OpinionModelProblem{T}, time::Tuple{T,T};
+                   seed=MersenneTwister()) where {T}
+    # Seeding the RNG
+    Random.seed!(seed)
+
+    problem = build_sdeproblem(omp, time)
+
     return solve(problem, SRIW1(); callback=influencer_switching_callback)
+end
+
+function simulate!(omp::SDEProblem; seed = MersenneTwister())
+    # Seeding the RNG
+    Random.seed!(seed)
+
+    return solve(omp, SRIW1(); callback=influencer_switching_callback)
 end
