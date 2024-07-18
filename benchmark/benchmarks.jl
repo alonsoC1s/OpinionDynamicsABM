@@ -12,10 +12,9 @@ SUITE["abm_simulation"]["agent-agent attraction"] = @benchmarkable(
 )
 
 SUITE["abm_simulation"]["full simulation"] = @benchmarkable(
-    # simulate!($omp)
-    simulate!($prob)
+    simulate!($omp)
 )
 
 SUITE["abm_simulation"]["diffeq_integrator"] = @benchmarkable(
-    simulate!($omp, (0.0, 2.0))
+    simulate!($prob)
 )
