@@ -2,7 +2,8 @@ module OpinionDynamicsABM
 
 # Write your package code here.
 # Imports
-using LinearAlgebra, Plots, Random, Distributions, Statistics, OMEinsum
+using LinearAlgebra, Plots, Random, Distributions, Statistics, OMEinsum,
+      DifferentialEquations
 
 # Exports...
 export _boolean_combinator,
@@ -20,12 +21,13 @@ export _boolean_combinator,
        influencer_switch_rates,
        _ag_ag_echo_chamber,
        _media_network,
-       plot_snapshot,
-       drift,
-       noise
+       plot_snapshot
 
 include("utils.jl")
-include("abm.jl")
+include("opinion_model_problem.jl")
+include("sde_functions.jl")
+include("solvers.jl")
+include("plotting.jl")
 
 theme(:ggplot2)
 
