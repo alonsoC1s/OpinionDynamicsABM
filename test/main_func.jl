@@ -24,7 +24,7 @@ end
     omp = OpinionModelProblem((-2.0, 2.0), (-2.0, 2.0); seed=fixed_seed)
 
     # Testing the Agent-Agent attraction
-    force = OpinionDynamicsABM.AgAg_attraction(omp.X, omp.AgAgNet)
+    force = OpinionDynamicsABM.AgAg_attraction(omp.X, omp.A)
     @test_reference "reftest-files/ag_ag_forces.npz" force by=isapprox
 
 
