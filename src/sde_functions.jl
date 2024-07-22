@@ -3,10 +3,12 @@
 # allocate the forces vector once at the E-M solver level and pass a view to the
 # attraction functions. This would reduce memory usage by making everything in-place.
 function AgAg_attraction(X::AbstractVecOrMat{T}, A::BitMatrix; φ=x -> exp(-x)) where {T}
-    # Pre allocating outputs
     I, D = size(X, 1), size(X, 2)
     J = size(X, 1) # Cheating. This only works for fully connected A
 
+    # FIXME: These can be pre-allocated all the way up in the integrator. Perhaps even
+    # reusing the same array over and over.
+    # Pre allocating outputs
     force = similar(X)
     Dijd = similar(X, I, J, D)
     Wij = similar(X, I, J)

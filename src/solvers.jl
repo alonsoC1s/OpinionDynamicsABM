@@ -66,7 +66,8 @@ function simulate!(omp::OpinionModelProblem{T};
         end
     end
 
-    return rX, rY, rZ, rC, rR
+    # return rX, rY, rZ, rC, rR
+    return OpinionModelSimulation(omp.p, rX, rY, rZ, rC, rR)
 end
 
 function drift(du, u, p, t)
@@ -121,7 +122,9 @@ function influencer_switch_affect!(integrator)
     return integrator.p.C .= switch_influencer(p.C, X, Z, rates, dt)
 end
 
-true_condition(u, t, integrator) = true
+true_condition = function (u, t, integrator)
+    true
+end
 
 influencer_switching_callback = DiscreteCallback(true_condition, influencer_switch_affect!)
 

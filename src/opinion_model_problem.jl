@@ -136,3 +136,27 @@ end
 function get_values(omp::OpinionModelProblem)
     return omp.X, omp.M, omp.I, omp.AgAgNet, omp.AgMedNet, omp.AgInfNet
 end
+
+struct OpinionModelSimulation{T<:AbstractFloat}
+    p::ModelParams{T} # Model parameters
+    X::AbstractArray{T, 3} # Array of Agents' positions
+    Y::AbstractArray{T, 3} # Array of Media positions
+    Z::AbstractArray{T, 3} # Array of Influencers' positions
+    C::BitArray{3} # Adjacency matrix of Agents-Influencers
+    R::AbstractArray{3} # Computed influencer switching rates for Agents
+end
+
+function OpinionModelSimulation(S <: SciMLSolution, p::ModelParams)
+    U = reshape(S, p.n + p.L + p.M, :, length(S))
+
+    # FIXME: I could hard code this, or use the smart version published in
+    # https://julialang.org/blog/2016/02/iteration/.
+    agents = CartesianIndices((firstindex(U):(p.n), axes(U, 2), axes(U,3) ))
+    influencers = CartesianIndices(((p.n + 1):(p.n + p.L), axes(U, 2), axes(U, 3)))
+    media = CartesianIndices(((p.n + p.L + 1):size(U, 1), axes(U, 2), axes(U, 3)))
+
+    # Assigning variable names to vector of solutions for readability
+    X = @view u[agents]
+    Y = @view u[media]
+    Z = @view u[influencers]
+end
