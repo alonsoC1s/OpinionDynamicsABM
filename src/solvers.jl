@@ -9,7 +9,7 @@ function simulate!(omp::OpinionModelProblem{T};
                    Nt=200,
                    dt=0.01,
                    seed=MersenneTwister(),
-                   echo_chamber::Bool=false,) where {T}
+                   echo_chamber::Bool=false)::OpinionModelSimulation{T} where {T}
     X, Y, Z, A, B, C = get_values(omp)
     σ, n, Γ, γ, = omp.p.σ, omp.p.n, omp.p.frictionM, omp.p.frictionI
     M, L = omp.p.M, omp.p.L
@@ -67,7 +67,7 @@ function simulate!(omp::OpinionModelProblem{T};
     end
 
     # return rX, rY, rZ, rC, rR
-    return OpinionModelSimulation(omp.p, rX, rY, rZ, rC, rR)
+    return OpinionModelSimulation{T,BespokeSolver}(omp.p, rX, rY, rZ, rC, rR)
 end
 
 function drift(du, u, p, t)
@@ -122,13 +122,15 @@ function influencer_switch_affect!(integrator)
     return integrator.p.C .= switch_influencer(p.C, X, Z, rates, dt)
 end
 
-true_condition = function (u, t, integrator)
-    true
-end
+# true_condition = function (u, t, integrator)
+#     true
+# end
+# FIXME: The following definition might be wrong. Use the one commented above
+true_condition(u, t, integrator) = true
 
 influencer_switching_callback = DiscreteCallback(true_condition, influencer_switch_affect!)
 
-function build_sdeproblem(omp::OpinionModelProblem{T}, time::Tuple{T, T}) where {T}
+function build_sdeproblem(omp::OpinionModelProblem{T}, time::Tuple{T,T}) where {T}
     p = omp.p
     # Stack all important parameters to be fed to the integrator
     P = (L=p.L, M=p.M, n=p.n, η=p.η, a=p.a, b=p.b, c=p.c, σ=p.σ, σ̂=p.σ̂, σ̃=p.σ̃,
@@ -139,19 +141,24 @@ function build_sdeproblem(omp::OpinionModelProblem{T}, time::Tuple{T, T}) where 
     return SDEProblem(drift, noise, u₀, time, P)
 end
 
+# Constructor go directly from "native" problem def. to diffeq
 function simulate!(omp::OpinionModelProblem{T}, time::Tuple{T,T};
-                   seed=MersenneTwister()) where {T}
+                   seed=MersenneTwister())::OpinionModelSimulation where {T}
     # Seeding the RNG
     Random.seed!(seed)
 
-    problem = build_sdeproblem(omp, time)
+    diffeq_prob = build_sdeproblem(omp, time)
+    diffeq_sol = solve(diffeq_prob, SRIW1(); callback=influencer_switching_callback)
 
-    return solve(problem, SRIW1(); callback=influencer_switching_callback)
+    # TODO: Maybe use the retcode from diffeq to warn here.
+
+    return OpinionModelSimulation{T,DiffEqSolver}(diffeq_sol, diffeq_prob.p.p)
 end
 
-function simulate!(omp::SDEProblem; seed = MersenneTwister())
+function simulate!(sde_omp::SDEProblem; seed=MersenneTwister())::OpinionModelSimulation
     # Seeding the RNG
     Random.seed!(seed)
 
-    return solve(omp, SRIW1(); callback=influencer_switching_callback)
+    diffeq_sol = solve(sde_omp, SRIW1(); callback=influencer_switching_callback)
+    return OpinionModelSimulation(diffeq_sol, sde_omp.p.p)
 end

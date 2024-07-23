@@ -137,26 +137,60 @@ function get_values(omp::OpinionModelProblem)
     return omp.X, omp.M, omp.I, omp.AgAgNet, omp.AgMedNet, omp.AgInfNet
 end
 
-struct OpinionModelSimulation{T<:AbstractFloat}
-    p::ModelParams{T} # Model parameters
-    X::AbstractArray{T, 3} # Array of Agents' positions
-    Y::AbstractArray{T, 3} # Array of Media positions
-    Z::AbstractArray{T, 3} # Array of Influencers' positions
-    C::BitArray{3} # Adjacency matrix of Agents-Influencers
-    R::AbstractArray{3} # Computed influencer switching rates for Agents
+# Supporting structs for the SciML DiffEq based solver
+
+abstract type Solver end
+abstract type BespokeSolver <: Solver end
+struct DiffEqSolver <: Solver
+    abstol::AbstractFloat # tolerance value of the diff.eq. solver. Used to compare
 end
 
-function OpinionModelSimulation(S <: SciMLSolution, p::ModelParams)
-    U = reshape(S, p.n + p.L + p.M, :, length(S))
+struct OpinionModelSimulation{T<:AbstractFloat,S<:Solver}
+    p::ModelParams{T} # Model parameters
+    X::AbstractArray{T,3} # Array of Agents' positions
+    Y::AbstractArray{T,3} # Array of Media positions
+    Z::AbstractArray{T,3} # Array of Influencers' positions
+    C::BitArray{3} # Adjacency matrix of Agents-Influencers
+    R::AbstractArray{T,3} # Computed influencer switching rates for Agents
+end
+
+Base.length(oms::OpinionModelSimulation) = size(oms.X, 3)
+Base.eltype(oms::OpinionModelSimulation{T,S}) where {T,S} = T
+solvtype(oms::OpinionModelSimulation{T,S}) where {T,S} = S
+
+#TODO: Implment the isapprox functions for comparing Bespoke & DiffEq simulations. use abstol
+
+function OpinionModelSimulation{T,DiffEqSolver}(sol::S,
+                                         p::ModelParams{T}) where {T,
+                                                                   S<:SciMLBase.AbstractODESolution}
+    U = reshape(sol, p.n + p.L + p.M, :, length(sol))
 
     # FIXME: I could hard code this, or use the smart version published in
     # https://julialang.org/blog/2016/02/iteration/.
-    agents = CartesianIndices((firstindex(U):(p.n), axes(U, 2), axes(U,3) ))
+    agents = CartesianIndices((firstindex(U):(p.n), axes(U, 2), axes(U, 3)))
     influencers = CartesianIndices(((p.n + 1):(p.n + p.L), axes(U, 2), axes(U, 3)))
     media = CartesianIndices(((p.n + p.L + 1):size(U, 1), axes(U, 2), axes(U, 3)))
 
     # Assigning variable names to vector of solutions for readability
-    X = @view u[agents]
-    Y = @view u[media]
-    Z = @view u[influencers]
+    X = @view U[agents]
+    Y = @view U[media]
+    Z = @view U[influencers]
+
+    # FIXME: Matrices C & R are placeholders. I haven't implemented the parameter saving
+    # at the diff. eq. level, which is what would be needed to get the actual values (and
+    # to verify that the callback was actually working).
+    # For the Agent-Influencer, I reuse orthantize over each simulation step
+    C = mapslices(_orthantize, X; dims=(1, 2))
+    R = zeros(Float64, p.n, p.L, length(sol))
+
+    return OpinionModelSimulation{T,DiffEqSolver}(p, X, Y, Z, C, R)
+end
+
+function Base.show(io::IO, oms::OpinionModelSimulation{T}) where {T}
+    return print("""
+                 Simulation of the ABM Opinion Model with:
+                 - $(oms.p.n) agents
+                 - $(length(oms)) time steps
+                 - Solved with: $(solvtype(oms))
+                 """)
 end
