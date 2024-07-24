@@ -1,21 +1,18 @@
 
 """
-    simulate!(omp::OpinionModelProblem; Nt=100, dt=0.01, method=:other)
+    simulate!(omp::OpinionModelProblem; Nt=200, dt=0.01, [seed])
 
-Simulates the evolution of the Opinion Dynamics problem `omp` by solving the associated
-SDE via Euler--Maruyama with `Nt` time steps and resolution `dt`.
+Simulates the evolution of the Opinion Dynamics model `omp` by solving the defining SDE
+via a hand-implemented Euler--Maruyama integrator with `Nt` steps of size `dt`.
 """
 function simulate!(omp::OpinionModelProblem{T};
                    Nt=200,
                    dt=0.01,
                    seed=MersenneTwister(),
                    echo_chamber::Bool=false)::OpinionModelSimulation{T} where {T}
-    X, Y, Z, A, B, C = get_values(omp)
-    σ, n, Γ, γ, = omp.p.σ, omp.p.n, omp.p.frictionM, omp.p.frictionI
-    M, L = omp.p.M, omp.p.L
+    X, Y, Z, A, B, C = omp
+    L, M, n, η, a, b, c, σ, σ̂, σ̃, γ, Γ = omp.p
     d = size(X, 2)
-    σ̂, σ̃ = omp.p.σ̂, omp.p.σ̃
-    η = omp.p.η
 
     # Seeding the RNG
     Random.seed!(seed)
@@ -26,7 +23,6 @@ function simulate!(omp::OpinionModelProblem{T};
     rZ = zeros(T, L, d, Nt)
     rC = BitArray{3}(undef, n, L, Nt)
     # Jump rates can be left uninitialzied. Not defined for the last time step
-    # rR = Array{T,3}(undef, n, L, Nt-1)
     rR = Array{T,3}(undef, n, L, Nt - 1)
 
     rX[:, :, begin] = X

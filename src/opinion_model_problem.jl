@@ -40,6 +40,21 @@ function ModelParams(;
     return ModelParams(L, M, n, η, a, b, c, σ, σ̂, σ̃, FI, FM)
 end
 
+# iteration for destructuring into components
+Base.iterate(p::ModelParams) = (p.L, Val(:M))
+Base.iterate(p::ModelParams, ::Val{:M}) = (p.M, Val(:n))
+Base.iterate(p::ModelParams, ::Val{:n}) = (p.n, Val(:η))
+Base.iterate(p::ModelParams, ::Val{:η}) = (p.η, Val(:a))
+Base.iterate(p::ModelParams, ::Val{:a}) = (p.a, Val(:b))
+Base.iterate(p::ModelParams, ::Val{:b}) = (p.b, Val(:c))
+Base.iterate(p::ModelParams, ::Val{:c}) = (p.c, Val(:σ))
+Base.iterate(p::ModelParams, ::Val{:σ}) = (p.σ, Val(:σ̂))
+Base.iterate(p::ModelParams, ::Val{:σ̂}) = (p.σ̂, Val(:σ̃))
+Base.iterate(p::ModelParams, ::Val{:σ̃}) = (p.σ̃, Val(:γ))
+Base.iterate(p::ModelParams, ::Val{:γ}) = (p.frictionI, Val(:Γ))
+Base.iterate(p::ModelParams, ::Val{:Γ}) = (p.frictionM, Val(:done))
+Base.iterate(p::ModelParams, ::Val{:done}) = nothing
+
 """
     OpinionModelProblem
 
@@ -133,9 +148,14 @@ function OpinionModelProblem(agents_init::AbstractVecOrMat{T},
                                AgMedNet)
 end
 
-function get_values(omp::OpinionModelProblem)
-    return omp.X, omp.M, omp.I, omp.AgAgNet, omp.AgMedNet, omp.AgInfNet
-end
+# iteration for destructuring into components
+Base.iterate(omp::OpinionModelProblem) = (omp.X, Val(:M))
+Base.iterate(omp::OpinionModelProblem, ::Val{:M}) = (omp.M, Val(:I))
+Base.iterate(omp::OpinionModelProblem, ::Val{:I}) = (omp.I, Val(:AgAgNet))
+Base.iterate(omp::OpinionModelProblem, ::Val{:AgAgNet}) = (omp.AgAgNet, Val(:AgMedNet))
+Base.iterate(omp::OpinionModelProblem, ::Val{:AgMedNet}) = (omp.AgMedNet, Val(:AgInfNet))
+Base.iterate(omp::OpinionModelProblem, ::Val{:AgInfNet}) = (omp.AgInfNet, Val(:done))
+Base.iterate(omp::OpinionModelProblem, ::Val{:done}) = nothing
 
 # Supporting structs for the SciML DiffEq based solver
 
