@@ -181,6 +181,8 @@ struct OpinionModelSimulation{T<:AbstractFloat,S<:AbstractSolver}
     R::AbstractArray{T,3} # Computed influencer switching rates for Agents
 end
 
+# FIXME: Implement destructuring to get X, Y, Z, C, R
+
 Base.length(oms::OpinionModelSimulation) = size(oms.X, 3)
 Base.eltype(oms::OpinionModelSimulation{T,S}) where {T,S} = T
 solvtype(oms::OpinionModelSimulation{T,S}) where {T,S} = S
@@ -227,7 +229,7 @@ end
 # FIXME: Make these operators commutative, if not already so.
 function Base.isapprox(s1::Sim, s2::Sim; atol::Real=0,
                        rtol::Real=atol > 0 ? 0 : √eps(T)) where {Sim<:OpinionModelSimulation{T,
-                                                                                             BespokeSolver}}
+                                                                                           BespokeSolver}}
     # Check maximum elementwise differences are below the tolerance
     ΔX = s1.X .- s2.X
     ΔY = s1.Y .- s2.Y
@@ -236,11 +238,7 @@ function Base.isapprox(s1::Sim, s2::Sim; atol::Real=0,
     return arrays_areapprox(ΔX, ΔY, ΔZ, atol, rtol)
 end
 
-function Base.isapprox(s1::SBe, s2::SD, atol::Real=0,
-                       rtol::Real=atol > 0 ? 0 : √eps(T)) where {SBe<:OpinionModelSimulation{T,
-                                                                                             BespokeSolver},
-                                                                 SD<:OpinionModelSimulation{T,
-                                                                                            DiffEqSolver}}
+function Base.isapprox(s1::SBe, s2::SD, atol::Real=0, rtol::Real=atol > 0 ? 0: √eps(T)) where {SBe<:OpinionModelSimulation{T, BespokeSolver}, SD<:OpinionModelSimulation{T, DiffEqSolver}}
     interpolated_sol = s2.solver.sol.(s1.solver.tstops)
     stacked_sol = vcat(s1.X, s1.Y, s1.Z)
 

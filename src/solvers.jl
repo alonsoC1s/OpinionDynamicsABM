@@ -116,19 +116,20 @@ function influencer_switch_affect!(integrator)
     Z = @view u[influencers]
 
     rates = influencer_switch_rates(X, Z, p.B, p.C, p.η)
-    return integrator.p.C .= switch_influencer(p.C, X, Z, rates, dt)
+    new_C = switch_influencer(integrator.p.C, X, Z, rates, dt)
+    integrator.p.C .= new_C
 end
 
 true_condition = function (u, t, integrator)
     return true
 end
 
-influencer_switching_callback = DiscreteCallback(true_condition, influencer_switch_affect!)
+influencer_switching_callback = DiscreteCallback(true_condition, influencer_switch_affect!;
+                                                 save_positions=(true, true))
 
 # save_B(u, t, integrator) = integrator.p.C
 save_B = function (u, t, integrator)
-    @info "Called save callback"
-    integrator.p.C
+    return integrator.p.C
 end
 
 function build_sdeproblem(omp::OpinionModelProblem{T}, time::Tuple{T,T}) where {T}
@@ -142,7 +143,7 @@ function build_sdeproblem(omp::OpinionModelProblem{T}, time::Tuple{T,T}) where {
     return SDEProblem(drift, noise, u₀, time, P)
 end
 
-# Constructor go directly from "native" problem def. to diffeq
+# Constructor to go directly from "native" problem def. to diffeq
 function simulate!(omp::OpinionModelProblem{T}, time::Tuple{T,T};
                    seed=MersenneTwister())::OpinionModelSimulation where {T}
     # Seeding the RNG
@@ -150,19 +151,18 @@ function simulate!(omp::OpinionModelProblem{T}, time::Tuple{T,T};
 
     # Defining the callbacks
     B_cache = SavedValues(Float64, BitMatrix)
-    saving_callback = SavingCallback(save_B, B_cache; save_everystep=true, save_start=true)
-
+    saving_callback = SavingCallback(save_B, B_cache; save_everystep=true)
     cbs = CallbackSet(influencer_switching_callback, saving_callback)
 
     diffeq_prob = build_sdeproblem(omp, time)
-    diffeq_sol = solve(diffeq_prob, SRIW1(); callback=cbs, alg_hints = :additive)
+    diffeq_sol = solve(diffeq_prob, SRIW1(); callback=cbs, alg_hints=:additive)
 
     # TODO: Maybe use the retcode from diffeq to warn here.
 
     return OpinionModelSimulation{T,DiffEqSolver}(diffeq_sol, B_cache, diffeq_prob.p.p)
 end
 
-function simulate!(sde_omp::SDEProblem; seed=MersenneTwister())::OpinionModelSimulation
+function simulate!(sde_omp::SDEProblem; seed=MersenneTwister())
     # Seeding the RNG
     Random.seed!(seed)
 
@@ -172,6 +172,6 @@ function simulate!(sde_omp::SDEProblem; seed=MersenneTwister())::OpinionModelSim
 
     cbs = CallbackSet(influencer_switching_callback, saving_callback)
 
-    diffeq_sol = solve(sde_omp, SRIW1(); callback=cbs, diffeq_prob = :additive)
-    return OpinionModelSimulation(diffeq_sol, B_cache, sde_omp.p.p)
+    diffeq_sol = solve(sde_omp, SRIW1(); callback=cbs, alg_hints=:additive)
+    return OpinionModelSimulation{Float64, DiffEqSolver}(diffeq_sol, B_cache, sde_omp.p.p)
 end
