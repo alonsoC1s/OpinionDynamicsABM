@@ -159,15 +159,21 @@ Base.iterate(omp::OpinionModelProblem, ::Val{:done}) = nothing
 
 # Supporting structs for the SciML DiffEq based solver
 
-abstract type Solver end
-abstract type BespokeSolver <: Solver end
-struct DiffEqSolver <: Solver
-    abstol::AbstractFloat # tolerance value of the diff.eq. solver. Used to compare
+abstract type AbstractSolver end
+struct BespokeSolver <: AbstractSolver
+    tstops::AbstractVector{Float64}
+end
+struct DiffEqSolver <: AbstractSolver
+    sol::SciMLBase.RODESolution
+    # abstol::AbstractFloat # tolerance value of the diff.eq. solver. Used to compare
+    # TODO: Check if I can put the `sol` from DiffEq here to get access to the solution
+    # interpolator to make comparisons at the exact same timepoints.
 end
 
-struct OpinionModelSimulation{T<:AbstractFloat,S<:Solver}
+struct OpinionModelSimulation{T<:AbstractFloat,S<:AbstractSolver}
     p::ModelParams{T} # Model parameters
     nsteps::Integer # Number of steps the solver used
+    solver::S
     X::AbstractArray{T,3} # Array of Agents' positions
     Y::AbstractArray{T,3} # Array of Media positions
     Z::AbstractArray{T,3} # Array of Influencers' positions
@@ -202,7 +208,10 @@ function OpinionModelSimulation{T,DiffEqSolver}(sol::S, cache::IntCache,
     # FIXME: Not saving the rates for now for convenience. But leaving the possibility
     R = zeros(Float64, p.n, p.L, length(sol))
 
-    return OpinionModelSimulation{T,DiffEqSolver}(p, length(sol.t), X, Y, Z, C, R)
+    solver_meta = DiffEqSolver(sol)
+
+    return OpinionModelSimulation{T,DiffEqSolver}(p, length(sol.t), solver_meta, X, Y, Z, C,
+                                                  R)
 end
 
 function Base.show(io::IO, oms::OpinionModelSimulation{T}) where {T}
@@ -212,4 +221,28 @@ function Base.show(io::IO, oms::OpinionModelSimulation{T}) where {T}
                  - $(oms.nsteps) time steps
                  - Solved with: $(solvtype(oms))
                  """)
+end
+
+# Functions for comparing solutions
+# FIXME: Make these operators commutative, if not already so.
+function Base.isapprox(s1::Sim, s2::Sim; atol::Real=0,
+                       rtol::Real=atol > 0 ? 0 : √eps(T)) where {Sim<:OpinionModelSimulation{T,
+                                                                                             BespokeSolver}}
+    # Check maximum elementwise differences are below the tolerance
+    ΔX = s1.X .- s2.X
+    ΔY = s1.Y .- s2.Y
+    ΔZ = s1.Z .- s2.Z
+
+    return arrays_areapprox(ΔX, ΔY, ΔZ, atol, rtol)
+end
+
+function Base.isapprox(s1::SBe, s2::SD, atol::Real=0,
+                       rtol::Real=atol > 0 ? 0 : √eps(T)) where {SBe<:OpinionModelSimulation{T,
+                                                                                             BespokeSolver},
+                                                                 SD<:OpinionModelSimulation{T,
+                                                                                            DiffEqSolver}}
+    interpolated_sol = s2.solver.sol.(s1.solver.tstops)
+    stacked_sol = vcat(s1.X, s1.Y, s1.Z)
+
+    return Δ_isapprox(stacked_sol .- interpolated_sol, atol, rtol)
 end

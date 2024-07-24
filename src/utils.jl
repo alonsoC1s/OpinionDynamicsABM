@@ -190,6 +190,27 @@ function time_rate_tensor(R::AbstractArray{U,3}, C::BitArray{3}) where {U<:Real}
     return Λ
 end
 
+"""
+    Δ_isapprox(Δarray, [atol], [rtol])
+
+Tests if all entries of the differences array are below the relative tolerance allowed.
+"""
+function Δ_isapprox(Δarray::A, atol::Real=0,
+                    rtol::Real=atol > 0 ? 0 : 1e-9) where {A<:AbstractArray}
+    return reduce(max, Δarray) < rtol
+end
+
+"""
+    arrays_areapprox(ΔA, ΔB, ΔC, [atol], [rtol])
+
+Tests if all the entries of the difference arrays (ΔA, ΔB, ΔC) are below the relative
+tolerance allowed.
+"""
+function arrays_areapprox(ΔA::A, ΔB::A, ΔC::A, atol::Real=0,
+                          rtol::Real=atol > 0 ? 0 : 1e-9) where {A<:AbstractArray}
+    return Δ_isapprox(vcat(ΔA, ΔB, ΔC))
+end
+
 # TODO: Test legacy functions
 
 function legacy_rates(B, x, FolInfNet, inf, eta)
