@@ -147,6 +147,7 @@ end
 
 struct OpinionModelSimulation{T<:AbstractFloat,S<:Solver}
     p::ModelParams{T} # Model parameters
+    nsteps::Integer # Number of steps the solver used
     X::AbstractArray{T,3} # Array of Agents' positions
     Y::AbstractArray{T,3} # Array of Media positions
     Z::AbstractArray{T,3} # Array of Influencers' positions
@@ -160,10 +161,11 @@ solvtype(oms::OpinionModelSimulation{T,S}) where {T,S} = S
 
 #TODO: Implment the isapprox functions for comparing Bespoke & DiffEq simulations. use abstol
 
-function OpinionModelSimulation{T,DiffEqSolver}(sol::S,
-                                         p::ModelParams{T}) where {T,
-                                                                   S<:SciMLBase.AbstractODESolution}
-    U = reshape(sol, p.n + p.L + p.M, :, length(sol))
+function OpinionModelSimulation{T,DiffEqSolver}(sol::S, cache::IntCache,
+                                                p::ModelParams{T}) where {T,
+                                                                          S<:SciMLBase.AbstractODESolution,
+                                                                          IntCache<:DiffEqCallbacks.SavedValues}
+    U = reshape(sol, p.n + p.L + p.M, :, length(sol)) # FIXME: Maybe use `stack`
 
     # FIXME: I could hard code this, or use the smart version published in
     # https://julialang.org/blog/2016/02/iteration/.
@@ -176,21 +178,18 @@ function OpinionModelSimulation{T,DiffEqSolver}(sol::S,
     Y = @view U[media]
     Z = @view U[influencers]
 
-    # FIXME: Matrices C & R are placeholders. I haven't implemented the parameter saving
-    # at the diff. eq. level, which is what would be needed to get the actual values (and
-    # to verify that the callback was actually working).
-    # For the Agent-Influencer, I reuse orthantize over each simulation step
-    C = mapslices(_orthantize, X; dims=(1, 2))
+    C = stack(cache.saveval)
+    # FIXME: Not saving the rates for now for convenience. But leaving the possibility
     R = zeros(Float64, p.n, p.L, length(sol))
 
-    return OpinionModelSimulation{T,DiffEqSolver}(p, X, Y, Z, C, R)
+    return OpinionModelSimulation{T,DiffEqSolver}(p, length(sol.t), X, Y, Z, C, R)
 end
 
 function Base.show(io::IO, oms::OpinionModelSimulation{T}) where {T}
     return print("""
                  Simulation of the ABM Opinion Model with:
                  - $(oms.p.n) agents
-                 - $(length(oms)) time steps
+                 - $(oms.nsteps) time steps
                  - Solved with: $(solvtype(oms))
                  """)
 end
