@@ -74,8 +74,8 @@ function Base.show(io::IO, omp::OpinionModelProblem{T}) where {T}
     return print("""
                  $(size(omp.X, 2))-dimensional Agent Based Opinion Model with:
                  - $(omp.p.n) agents
-                 - $(omp.p.L) influencers
                  - $(omp.p.M) media outlets
+                 - $(omp.p.L) influencers
                  """)
 end
 
@@ -189,7 +189,8 @@ solvtype(oms::OpinionModelSimulation{T,S}) where {T,S} = S
 
 #TODO: Implment the isapprox functions for comparing Bespoke & DiffEq simulations. use abstol
 
-function OpinionModelSimulation{T,DiffEqSolver}(sol::S, cache::IntCache,
+function OpinionModelSimulation{T,DiffEqSolver}(sol::S,
+                                                cache::IntCache,
                                                 p::ModelParams{T}) where {T,
                                                                           S<:SciMLBase.AbstractODESolution,
                                                                           IntCache<:DiffEqCallbacks.SavedValues}
@@ -198,8 +199,9 @@ function OpinionModelSimulation{T,DiffEqSolver}(sol::S, cache::IntCache,
     # FIXME: I could hard code this, or use the smart version published in
     # https://julialang.org/blog/2016/02/iteration/.
     agents = CartesianIndices((firstindex(U):(p.n), axes(U, 2), axes(U, 3)))
-    influencers = CartesianIndices(((p.n + 1):(p.n + p.L), axes(U, 2), axes(U, 3)))
-    media = CartesianIndices(((p.n + p.L + 1):size(U, 1), axes(U, 2), axes(U, 3)))
+    media = CartesianIndices(((p.n + 1):(p.n + p.M), axes(U, 2), axes(U, 3)))
+    influencers = CartesianIndices(((p.n + p.M + 1):(p.n + p.M + p.L), axes(U, 2),
+                                    axes(U, 3)))
 
     # Assigning variable names to vector of solutions for readability
     X = @view U[agents]

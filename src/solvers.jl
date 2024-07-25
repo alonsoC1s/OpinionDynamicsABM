@@ -31,7 +31,8 @@ function simulate!(omp::OpinionModelProblem{T};
     rC[:, :, begin] = C
 
     # Solve with Euler-Maruyama
-    for i in 1:(Nt - 1)
+    t_points = 1:(Nt - 1)
+    for i in t_points
         X = view(rX, :, :, i)
         Y = view(rY, :, :, i)
         Z = view(rZ, :, :, i)
@@ -62,15 +63,18 @@ function simulate!(omp::OpinionModelProblem{T};
         end
     end
 
+    solver_meta = BespokeSolver(collect(range(zero(T), step = dt, length = Nt)))
+
     # return rX, rY, rZ, rC, rR
-    return OpinionModelSimulation{T,BespokeSolver}(omp.p, Nt, rX, rY, rZ, rC, rR)
+    return OpinionModelSimulation{T,BespokeSolver}(omp.p, Nt, solver_meta, rX, rY, rZ, rC,
+                                                   rR)
 end
 
 function drift(du, u, p, t)
     # Defining the indices for readability
     agents = CartesianIndices((firstindex(u):(p.n), axes(u, 2)))
-    influencers = CartesianIndices(((p.n + 1):(p.n + p.L), axes(u, 2)))
-    media = CartesianIndices(((p.n + p.L + 1):size(u, 1), axes(u, 2)))
+    media = CartesianIndices(((p.n +1):(p.n + p.M), axes(u, 2)))
+    influencers = CartesianIndices(((p.n + p.M + 1):(p.n + p.M + p.L), axes(u ,2)))
 
     # Assigning variable names to vector of solutions for readability
     X = @view u[agents]
@@ -79,25 +83,25 @@ function drift(du, u, p, t)
 
     # Agents SDE
     du[agents] .= agent_drift(X, Y, Z, p.A, p.B, p.C, p.p)
-
+    # Media drift
+    du[media] .= media_drift(X, Y, p.B)
     # Influencer SDE
     du[influencers] .= influencer_drift(X, Z, p.C)
 
-    # Media drift
-    du[media] .= media_drift(X, Y, p.B)
     return nothing
 end
 
 function noise(du, u, p, t)
     # Defining the indices for readability
-    agents = CartesianIndices((firstindex(u):(p.n), axes(du, 2)))
-    influencers = CartesianIndices(((p.n + 1):(p.L), axes(du, 2)))
-    media = CartesianIndices(((p.L + 1):(p.M), axes(du, 2)))
+    agents = CartesianIndices((firstindex(u):(p.n), axes(u, 2)))
+    media = CartesianIndices(((p.n +1):(p.n + p.M), axes(u, 2)))
+    influencers = CartesianIndices(((p.n + p.M + 1):(p.n + p.M + p.L), axes(u ,2)))
 
     # Additive noise
     du[agents] .= p.σ
-    du[influencers] .= p.σ̂
     du[media] .= p.σ̃
+    du[influencers] .= p.σ̂
+
     return nothing
 end
 
@@ -118,6 +122,7 @@ function influencer_switch_affect!(integrator)
     rates = influencer_switch_rates(X, Z, p.B, p.C, p.η)
     new_C = switch_influencer(integrator.p.C, X, Z, rates, dt)
     integrator.p.C .= new_C
+    return nothing
 end
 
 true_condition = function (u, t, integrator)
@@ -138,7 +143,7 @@ function build_sdeproblem(omp::OpinionModelProblem{T}, time::Tuple{T,T}) where {
     P = (L=mp.L, M=mp.M, n=mp.n, η=mp.η, a=mp.a, b=mp.b, c=mp.c, σ=mp.σ, σ̂=mp.σ̂, σ̃=mp.σ̃,
          A=omp.AgAgNet, B=omp.AgMedNet, C=omp.AgInfNet, p=mp)
 
-    u₀ = vcat(omp.X, omp.I, omp.M)
+    u₀ = vcat(omp.X, omp.M, omp.I)
 
     return SDEProblem(drift, noise, u₀, time, P)
 end
@@ -173,5 +178,5 @@ function simulate!(sde_omp::SDEProblem; seed=MersenneTwister())
     cbs = CallbackSet(influencer_switching_callback, saving_callback)
 
     diffeq_sol = solve(sde_omp, SRIW1(); callback=cbs, alg_hints=:additive)
-    return OpinionModelSimulation{Float64, DiffEqSolver}(diffeq_sol, B_cache, sde_omp.p.p)
+    return OpinionModelSimulation{Float64,DiffEqSolver}(diffeq_sol, B_cache, sde_omp.p.p)
 end
