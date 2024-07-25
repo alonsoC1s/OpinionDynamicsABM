@@ -119,7 +119,7 @@ function influencer_switch_affect!(integrator)
     X = @view u[agents]
     Z = @view u[influencers]
 
-    rates = influencer_switch_rates(X, Z, p.B, p.C, p.η)
+    rates = influencer_switch_rates(X, Z, integrator.p.B, integrator.p.C, p.η)
     new_C = switch_influencer(integrator.p.C, X, Z, rates, dt)
     integrator.p.C .= new_C
     return nothing
@@ -133,7 +133,7 @@ influencer_switching_callback = DiscreteCallback(true_condition, influencer_swit
                                                  save_positions=(true, true))
 
 # save_B(u, t, integrator) = integrator.p.C
-save_B = function (u, t, integrator)
+save_C = function (u, t, integrator)
     return integrator.p.C
 end
 
@@ -157,8 +157,8 @@ function simulate!(omp::OpinionModelProblem{T,D}, time::Tuple{T,T};
     Random.seed!(seed)
 
     # Defining the callbacks
-    B_cache = SavedValues(Float64, BitMatrix)
-    saving_callback = SavingCallback(save_B, B_cache; save_everystep=true)
+    C_cache = SavedValues(Float64, BitMatrix)
+    saving_callback = SavingCallback(save_C, C_cache; save_everystep=true)
     cbs = CallbackSet(influencer_switching_callback, saving_callback)
 
     diffeq_prob = build_sdeproblem(omp, time)
@@ -166,7 +166,7 @@ function simulate!(omp::OpinionModelProblem{T,D}, time::Tuple{T,T};
 
     # TODO: Maybe use the retcode from diffeq to warn here.
 
-    return ModelSimulation{T,D,DiffEqSolver}(diffeq_sol, omp.domain, B_cache,
+    return ModelSimulation{T,D,DiffEqSolver}(diffeq_sol, omp.domain, C_cache,
                                              diffeq_prob.p.p)
 end
 
