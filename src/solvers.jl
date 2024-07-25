@@ -83,9 +83,9 @@ function drift(du, u, p, t)
     # Agents SDE
     du[agents] .= agent_drift(X, Y, Z, p.A, p.B, p.C, p.p)
     # Media drift
-    du[media] .= media_drift(X, Y, p.B)
+    du[media] .= (1 / p.Γ) .* media_drift(X, Y, p.B)
     # Influencer SDE
-    du[influencers] .= influencer_drift(X, Z, p.C)
+    du[influencers] .= (1 / p.γ) .* influencer_drift(X, Z, p.C)
 
     return nothing
 end
@@ -98,8 +98,8 @@ function noise(du, u, p, t)
 
     # Additive noise
     du[agents] .= p.σ
-    du[media] .= p.σ̃
-    du[influencers] .= p.σ̂
+    du[media] .= p.σ̃ / p.Γ
+    du[influencers] .= p.σ̂ / p.γ
 
     return nothing
 end
@@ -142,7 +142,8 @@ function build_sdeproblem(omp::OpinionModelProblem{T,D}, time::Tuple{T,T}) where
     # Stack all important parameters to be fed to the integrator
     # FIXME: This is ugly, use destructuring
     P = (L=mp.L, M=mp.M, n=mp.n, η=mp.η, a=mp.a, b=mp.b, c=mp.c, σ=mp.σ, σ̂=mp.σ̂, σ̃=mp.σ̃,
-         A=omp.AgAgNet, B=omp.AgMedNet, C=omp.AgInfNet, p=mp)
+         γ=mp.frictionI, Γ=mp.frictionM, A=omp.AgAgNet, B=omp.AgMedNet, C=omp.AgInfNet,
+         p=mp)
 
     u₀ = vcat(omp.X, omp.M, omp.I)
 
@@ -183,5 +184,5 @@ function simulate!(sde_omp::SDEProblem; seed=MersenneTwister())
     domain = _array_bounds(sde_omp.u0) # Domain is the bounding box of initial opinions
 
     return OpinionModelSimulation{Float64,2,DiffEqSolver}(diffeq_sol, domain, B_cache,
-                                                        sde_omp.p.p)
+                                                          sde_omp.p.p)
 end

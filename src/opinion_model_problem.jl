@@ -90,7 +90,7 @@ end
 
 function OpinionModelProblem(dom::Vararg{Tuple{T,T},D}; p=ModelParams(),
                              seed=MersenneTwister(),
-                             AgAgNetF::Function=I -> trues(p.n, p.n),) where {D,
+                             AgAgNetF::Function=I -> trues(p.n, p.n)) where {D,
                                                                               T<:AbstractFloat}
     # We divide the domain into orthants, and each orthant has 1 influencer
     p.L != 2^D && throw(ArgumentError("Number of influencers has to be 2^dim"))
