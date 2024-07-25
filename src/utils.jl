@@ -66,6 +66,20 @@ function _orthantize(X)
 end
 
 """
+    _array_bound(X::AbstractMatrix)
+
+Return the colwise minima and maxima of the `X`, which is interpreted as a matrix of
+coordinates of agents on opinion space. Each column corresponds to a dimension of opinion
+space, while each row corresponds to an agent.
+"""
+function _array_bounds(X::AbstractMatrix)
+    colwise_mins = reduce(minimum, X; dims = 1)
+    colwise_maxs = reduce(maximum, X; dims = 1)
+
+    return Tuple(zip(colwise_mins, colwise_maxs))
+end
+
+"""
     _ag_ag_echo_chamber(AgInfNet::BitArray)
 
 Constructs a fully echo-chamber Agent-Agent adjacency network. In other words, constructs

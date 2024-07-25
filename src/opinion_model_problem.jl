@@ -56,12 +56,13 @@ Base.iterate(p::ModelParams, ::Val{:Γ}) = (p.frictionM, Val(:done))
 Base.iterate(p::ModelParams, ::Val{:done}) = nothing
 
 """
-    OpinionModelProblem
+    OpinionModelProblem{T, D}
 
 encapsulates parameters and other properties of an Agent-Based model of Opinion Dynamics.
 """
-struct OpinionModelProblem{T<:AbstractFloat}
+struct OpinionModelProblem{T<:AbstractFloat,D}
     p::ModelParams{T} # Model parameters
+    domain::NTuple{D,Tuple{T,T}} # Bounds of opinion space. Exactly D 2-ples of (min, max)
     X::AbstractVecOrMat{T} # Array of Agents' positions
     M::AbstractVecOrMat{T} # Array of Media positions
     I::AbstractVecOrMat{T} # Array of Influencers' positions
@@ -70,27 +71,27 @@ struct OpinionModelProblem{T<:AbstractFloat}
     AgMedNet::BitMatrix # Agent-media correspondence vector
 end
 
-function Base.show(io::IO, omp::OpinionModelProblem{T}) where {T}
+function Base.show(io::IO, omp::OpinionModelProblem{T,D}) where {T,D}
     return print("""
-                 $(size(omp.X, 2))-dimensional Agent Based Opinion Model with:
+                 $(D)-dimensional Agent Based Opinion Model with:
                  - $(omp.p.n) agents
                  - $(omp.p.M) media outlets
                  - $(omp.p.L) influencers
                  """)
 end
 
-function OpinionModelProblem(dom::Vararg{Tuple{Real,Real},D}; p=ModelParams(),
-                             seed=MersenneTwister(),
-                             AgAgNetF::Function=I -> trues(p.n, p.n),) where {D<:Real}
-    @info "Promoting elements of domain tuples"
-    throw(ErrorException("Mixed-type tuples are not yet supported"))
-    # return OpinionModelProblem(promote(dom...), seed, AgAgNetF)
-end
+# function OpinionModelProblem(dom::Vararg{Tuple{Real,Real},D}; p=ModelParams(),
+#                              seed=MersenneTwister(),
+#                              AgAgNetF::Function=I -> trues(p.n, p.n),) where {D<:Real}
+#     @info "Promoting elements of domain tuples"
+#     throw(ErrorException("Mixed-type tuples are not yet supported"))
+#     # return OpinionModelProblem(promote(dom...), seed, AgAgNetF)
+# end
 
 function OpinionModelProblem(dom::Vararg{Tuple{T,T},D}; p=ModelParams(),
                              seed=MersenneTwister(),
-                             AgAgNetF::Function=I -> trues(p.n, p.n),) where {D,T<:Real}
-
+                             AgAgNetF::Function=I -> trues(p.n, p.n),) where {D,
+                                                                              T<:AbstractFloat}
     # We divide the domain into orthants, and each orthant has 1 influencer
     p.L != 2^D && throw(ArgumentError("Number of influencers has to be 2^dim"))
 
@@ -112,14 +113,16 @@ function OpinionModelProblem(dom::Vararg{Tuple{T,T},D}; p=ModelParams(),
         M = vec(M)
     end
 
-    return OpinionModelProblem(X, I; p=p, AgAgNetF=AgAgNetF)
+    return OpinionModelProblem{T,D}(X, I; p=p, dom=dom, AgAgNetF=AgAgNetF)
 end
 
-function OpinionModelProblem(agents_init::AbstractVecOrMat{T},
-                             influencers_init::AbstractVecOrMat{T};
-                             p=ModelParams(; L=size(influencers_init, 1),
-                                           n=size(agents_init, 1)),
-                             AgAgNetF::Function=I -> trues(p.n, p.n)) where {T<:AbstractFloat}
+function OpinionModelProblem{T,D}(agents_init::AbstractArray{T},
+                                  influencers_init::AbstractArray{T};
+                                  p=ModelParams(; L=size(influencers_init, 1),
+                                                n=size(agents_init, 1)),
+                                  dom::NTuple{D,Tuple{T,T}}=_array_bounds(agents_init),
+                                  AgAgNetF::Function=I -> trues(p.n, p.n)) where {D,
+                                                                                  T<:AbstractFloat}
     p.L != size(influencers_init, 1) &&
         throw(ArgumentError("`influencers_init` defined more influencers than contemplated" *
                             "in the parameters $(p)"))
@@ -141,11 +144,11 @@ function OpinionModelProblem(agents_init::AbstractVecOrMat{T},
     AgMedNet = _media_network(p.n, p.M)
 
     # We consider just 2 media outlets at the "corners"
-    D = size(agents_init, 2)
     M = vcat(fill(-one(T), (1, D)), fill(one(T), (1, D)))
 
-    return OpinionModelProblem(p, agents_init, M, influencers_init, AgInfNet, AgAgNet,
-                               AgMedNet)
+    return OpinionModelProblem{T,D}(p, dom, agents_init, M, influencers_init, AgInfNet,
+                                    AgAgNet,
+                                    AgMedNet)
 end
 
 # iteration for destructuring into components
@@ -170,8 +173,9 @@ struct DiffEqSolver <: AbstractSolver
     # interpolator to make comparisons at the exact same timepoints.
 end
 
-struct OpinionModelSimulation{T<:AbstractFloat,S<:AbstractSolver}
+struct OpinionModelSimulation{T<:AbstractFloat,D,S<:AbstractSolver}
     p::ModelParams{T} # Model parameters
+    dom::NTuple{D,Tuple{T,T}} # Domain of Opinion Space
     nsteps::Integer # Number of steps the solver used
     solver::S
     X::AbstractArray{T,3} # Array of Agents' positions
@@ -184,16 +188,15 @@ end
 # FIXME: Implement destructuring to get X, Y, Z, C, R
 
 Base.length(oms::OpinionModelSimulation) = size(oms.X, 3)
-Base.eltype(oms::OpinionModelSimulation{T,S}) where {T,S} = T
-solvtype(oms::OpinionModelSimulation{T,S}) where {T,S} = S
+Base.eltype(oms::OpinionModelSimulation{T,D,S}) where {T,D,S} = T
+solvtype(oms::OpinionModelSimulation{T,D,S}) where {T,D,S} = S
 
-#TODO: Implment the isapprox functions for comparing Bespoke & DiffEq simulations. use abstol
-
-function OpinionModelSimulation{T,DiffEqSolver}(sol::S,
-                                                cache::IntCache,
-                                                p::ModelParams{T}) where {T,
-                                                                          S<:SciMLBase.AbstractODESolution,
-                                                                          IntCache<:DiffEqCallbacks.SavedValues}
+function OpinionModelSimulation{T,D,DiffEqSolver}(sol::S,
+                                                  dom::NTuple{D,Tuple{T,T}},
+                                                  cache::IntCache,
+                                                  p::ModelParams{T}) where {T,D,
+                                                                            S<:SciMLBase.AbstractODESolution,
+                                                                            IntCache<:DiffEqCallbacks.SavedValues}
     U = reshape(sol, p.n + p.L + p.M, :, length(sol)) # FIXME: Maybe use `stack`
 
     # FIXME: I could hard code this, or use the smart version published in
@@ -214,11 +217,11 @@ function OpinionModelSimulation{T,DiffEqSolver}(sol::S,
 
     solver_meta = DiffEqSolver(sol)
 
-    return OpinionModelSimulation{T,DiffEqSolver}(p, length(sol.t), solver_meta, X, Y, Z, C,
-                                                  R)
+    return OpinionModelSimulation{T,D,DiffEqSolver}(p, dom, length(sol.t), solver_meta, X,
+                                                    Y, Z, C, R)
 end
 
-function Base.show(io::IO, oms::OpinionModelSimulation{T}) where {T}
+function Base.show(io::IO, oms::OpinionModelSimulation)
     return print("""
                  Simulation of the ABM Opinion Model with:
                  - $(oms.p.n) agents
@@ -230,8 +233,8 @@ end
 # Functions for comparing solutions
 
 function Base.:-(s1::SBe,
-                 s2::SD) where {T,SBe<:OpinionModelSimulation{T,BespokeSolver},
-                                SD<:OpinionModelSimulation{T,DiffEqSolver}}
+                 s2::SD) where {T,D,SBe<:OpinionModelSimulation{T,D,BespokeSolver},
+                                SD<:OpinionModelSimulation{T,D,DiffEqSolver}}
     interpolated_sol = s2.solver.sol.(s1.solver.tstops) |> stack
     stacked_sol = vcat(s1.X, s1.Y, s1.Z)
 
@@ -239,8 +242,8 @@ function Base.:-(s1::SBe,
 end
 
 function Base.:-(s1::SD,
-                 s2::SBe) where {T,SBe<:OpinionModelSimulation{T,BespokeSolver},
-                                 SD<:OpinionModelSimulation{T,DiffEqSolver}}
+                 s2::SBe) where {T,D,SBe<:OpinionModelSimulation{T,D,BespokeSolver},
+                                 SD<:OpinionModelSimulation{T,D,DiffEqSolver}}
     interpolated_sol = s1.solver.sol.(s2.solver.tstops) |> stack
     stacked_sol = vcat(s2.X, s2.Y, s2.Z)
 
@@ -250,7 +253,8 @@ end
 # FIXME: Make these operators commutative, if not already so.
 
 function Base.isapprox(s1::Sim, s2::Sim; rtol::Real=atol > 0 ? 0 : √eps(T),
-                       atol::Real=0) where {T,Sim<:OpinionModelSimulation{T,BespokeSolver}}
+                       atol::Real=0) where {T,D,
+                                            Sim<:OpinionModelSimulation{T,D,BespokeSolver}}
     # Check maximum elementwise differences are below the tolerance
     ΔX = s1.X .- s2.X
     ΔY = s1.Y .- s2.Y
@@ -260,7 +264,8 @@ function Base.isapprox(s1::Sim, s2::Sim; rtol::Real=atol > 0 ? 0 : √eps(T),
 end
 
 function Base.isapprox(s1::SBe, s2::SD; rtol::Real=atol > 0 ? 0 : √eps(T),
-                       atol::Real=0) where {T,SBe<:OpinionModelSimulation{T,BespokeSolver},
-                                            SD<:OpinionModelSimulation{T,DiffEqSolver}}
+                       atol::Real=0) where {T,D,
+                                            SBe<:OpinionModelSimulation{T,D,BespokeSolver},
+                                            SD<:OpinionModelSimulation{T,D,DiffEqSolver}}
     return Δ_isapprox(s1 - s2, atol, rtol)
 end

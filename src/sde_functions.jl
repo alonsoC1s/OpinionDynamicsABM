@@ -1,6 +1,6 @@
 
-# This could perhaps be optimized even further. One of the possibly good ideas would be to
-# allocate the forces vector once at the E-M solver level and pass a view to the
+# TODO: This could perhaps be optimized even further. One of the possibly good ideas would
+# be to allocate the forces vector once at the E-M solver level and pass a view to the
 # attraction functions. This would reduce memory usage by making everything in-place.
 function AgAg_attraction(X::AbstractVecOrMat{T}, A::BitMatrix; φ=x -> exp(-x)) where {T}
     I, D = size(X, 1), size(X, 2)
