@@ -209,7 +209,7 @@ function OpinionModelSimulation{T,DiffEqSolver}(sol::S,
     Z = @view U[influencers]
 
     C = stack(cache.saveval)
-    # FIXME: Not saving the rates for now for convenience. But leaving the possibility
+    # FIXME: Not saving the rates for now for convenience. But leaving the possibility open
     R = zeros(Float64, p.n, p.L, length(sol))
 
     solver_meta = DiffEqSolver(sol)
@@ -228,10 +228,29 @@ function Base.show(io::IO, oms::OpinionModelSimulation{T}) where {T}
 end
 
 # Functions for comparing solutions
+
+function Base.:-(s1::SBe,
+                 s2::SD) where {T,SBe<:OpinionModelSimulation{T,BespokeSolver},
+                                SD<:OpinionModelSimulation{T,DiffEqSolver}}
+    interpolated_sol = s2.solver.sol.(s1.solver.tstops) |> stack
+    stacked_sol = vcat(s1.X, s1.Y, s1.Z)
+
+    return stacked_sol .- interpolated_sol
+end
+
+function Base.:-(s1::SD,
+                 s2::SBe) where {T,SBe<:OpinionModelSimulation{T,BespokeSolver},
+                                 SD<:OpinionModelSimulation{T,DiffEqSolver}}
+    interpolated_sol = s1.solver.sol.(s2.solver.tstops) |> stack
+    stacked_sol = vcat(s2.X, s2.Y, s2.Z)
+
+    return interpolated_sol .- stacked_sol
+end
+
 # FIXME: Make these operators commutative, if not already so.
-function Base.isapprox(s1::Sim, s2::Sim; atol::Real=0,
-                       rtol::Real=atol > 0 ? 0 : √eps(T)) where {Sim<:OpinionModelSimulation{T,
-                                                                                           BespokeSolver}}
+
+function Base.isapprox(s1::Sim, s2::Sim; rtol::Real=atol > 0 ? 0 : √eps(T),
+                       atol::Real=0) where {T,Sim<:OpinionModelSimulation{T,BespokeSolver}}
     # Check maximum elementwise differences are below the tolerance
     ΔX = s1.X .- s2.X
     ΔY = s1.Y .- s2.Y
@@ -240,9 +259,8 @@ function Base.isapprox(s1::Sim, s2::Sim; atol::Real=0,
     return arrays_areapprox(ΔX, ΔY, ΔZ, atol, rtol)
 end
 
-function Base.isapprox(s1::SBe, s2::SD, atol::Real=0, rtol::Real=atol > 0 ? 0: √eps(T)) where {SBe<:OpinionModelSimulation{T, BespokeSolver}, SD<:OpinionModelSimulation{T, DiffEqSolver}}
-    interpolated_sol = s2.solver.sol.(s1.solver.tstops)
-    stacked_sol = vcat(s1.X, s1.Y, s1.Z)
-
-    return Δ_isapprox(stacked_sol .- interpolated_sol, atol, rtol)
+function Base.isapprox(s1::SBe, s2::SD; rtol::Real=atol > 0 ? 0 : √eps(T),
+                       atol::Real=0) where {T,SBe<:OpinionModelSimulation{T,BespokeSolver},
+                                            SD<:OpinionModelSimulation{T,DiffEqSolver}}
+    return Δ_isapprox(s1 - s2, atol, rtol)
 end

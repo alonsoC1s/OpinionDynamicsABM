@@ -72,6 +72,7 @@ end
 
 function drift(du, u, p, t)
     # Defining the indices for readability
+    # FIXME: Estás intercambiando el lugar de media con influencers
     agents = CartesianIndices((firstindex(u):(p.n), axes(u, 2)))
     media = CartesianIndices(((p.n +1):(p.n + p.M), axes(u, 2)))
     influencers = CartesianIndices(((p.n + p.M + 1):(p.n + p.M + p.L), axes(u ,2)))
@@ -83,8 +84,10 @@ function drift(du, u, p, t)
 
     # Agents SDE
     du[agents] .= agent_drift(X, Y, Z, p.A, p.B, p.C, p.p)
+
     # Media drift
     du[media] .= media_drift(X, Y, p.B)
+
     # Influencer SDE
     du[influencers] .= influencer_drift(X, Z, p.C)
 
@@ -93,6 +96,7 @@ end
 
 function noise(du, u, p, t)
     # Defining the indices for readability
+    # FIXME: Estás intercambiando el lugar de media con influencers
     agents = CartesianIndices((firstindex(u):(p.n), axes(u, 2)))
     media = CartesianIndices(((p.n +1):(p.n + p.M), axes(u, 2)))
     influencers = CartesianIndices(((p.n + p.M + 1):(p.n + p.M + p.L), axes(u ,2)))
@@ -101,7 +105,6 @@ function noise(du, u, p, t)
     du[agents] .= p.σ
     du[media] .= p.σ̃
     du[influencers] .= p.σ̂
-
     return nothing
 end
 
@@ -113,7 +116,7 @@ function influencer_switch_affect!(integrator)
     p = integrator.p
     # Defining the indices for readability
     agents = CartesianIndices((firstindex(u):(p.n), axes(u, 2)))
-    influencers = CartesianIndices(((p.n + 1):(p.n + p.L), axes(u, 2)))
+    influencers = CartesianIndices(((p.n + p.M + 1):(p.n + p.M + p.L), axes(u ,2)))
 
     # Assigning variable names to vector of solutions for readability
     X = @view u[agents]
@@ -140,6 +143,7 @@ end
 function build_sdeproblem(omp::OpinionModelProblem{T}, time::Tuple{T,T}) where {T}
     mp = omp.p
     # Stack all important parameters to be fed to the integrator
+    # FIXME: This is ugly, use destructuring
     P = (L=mp.L, M=mp.M, n=mp.n, η=mp.η, a=mp.a, b=mp.b, c=mp.c, σ=mp.σ, σ̂=mp.σ̂, σ̃=mp.σ̃,
          A=omp.AgAgNet, B=omp.AgMedNet, C=omp.AgInfNet, p=mp)
 

@@ -196,8 +196,9 @@ end
 Tests if all entries of the differences array are below the relative tolerance allowed.
 """
 function Δ_isapprox(Δarray::A, atol::Real=0,
-                    rtol::Real=atol > 0 ? 0 : 1e-9) where {A<:AbstractArray}
-    return reduce(max, Δarray) < rtol
+                    rtol::Real=atol > 0 ? 0 : √eps(T)) where {T,A<:AbstractArray{T}}
+    inf_norm = maximum(Δarray)
+    return reduce(max, Δarray) ≤ max(atol, rtol * inf_norm)
 end
 
 """
