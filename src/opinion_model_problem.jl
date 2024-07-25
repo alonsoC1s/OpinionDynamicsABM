@@ -185,7 +185,13 @@ struct OpinionModelSimulation{T<:AbstractFloat,D,S<:AbstractSolver}
     R::AbstractArray{T,3} # Computed influencer switching rates for Agents
 end
 
-# FIXME: Implement destructuring to get X, Y, Z, C, R
+# Implement destructuring via iteration
+Base.iterate(oms::OpinionModelSimulation) = (oms.X, Val(:Y))
+Base.iterate(oms::OpinionModelSimulation, ::Val{:Y}) = (oms.Y, Val(:Z))
+Base.iterate(oms::OpinionModelSimulation, ::Val{:Z}) = (oms.Z, Val(:C))
+Base.iterate(oms::OpinionModelSimulation, ::Val{:C}) = (oms.C, Val(:R))
+Base.iterate(oms::OpinionModelSimulation, ::Val{:R}) = (oms.R, Val(:done))
+Base.iterate(oms::OpinionModelSimulation, ::Val{:done}) = nothing
 
 Base.length(oms::OpinionModelSimulation) = size(oms.X, 3)
 Base.eltype(oms::OpinionModelSimulation{T,D,S}) where {T,D,S} = T

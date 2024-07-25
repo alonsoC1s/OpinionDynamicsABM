@@ -1,20 +1,47 @@
 # FIXME: Parametrize on dimension of the problem. If dim != 2, none of these should work
 
-function plot_frame(X, Y, Z, B, C, t; title="Simulation",
-                    mins=mapslices(minimum, X; dims=1),
-                    maxs=mapslices(maximum, X; dims=1))
+# function plot_frame(X, Y, Z, B, C, t; title="Simulation",
+#                     mins=mapslices(minimum, X; dims=1),
+#                     maxs=mapslices(maximum, X; dims=1))
+#     colors = [:red, :green, :blue, :black]
+#     shapes = [:ltriangle, :rtriangle]
+
+#     c_idx = findfirst.(eachrow(C[:, :, t]))
+#     s_idx = findfirst.(eachrow(B))
+
+#     p = scatter(eachcol(X[:, :, t])...;
+#                 c=colors[c_idx],
+#                 # m=shapes[s_idx],
+#                 legend=:none,
+#                 xlims=(mins[1], maxs[1]),
+#                 ylims=(mins[2], maxs[2]))
+
+#     scatter!(p,
+#              eachcol(Z[:, :, t])...;
+#              m=:hexagon,
+#              ms=6,
+#              markerstrokecolor=:white,
+#              markerstrokewidth=3,
+#              c=colors,
+#              title="$(title) at step $(t)",)
+
+#     return p
+# end
+
+function frame(oms::OpinionModelSimulation, t; title = "Simulation")
     colors = [:red, :green, :blue, :black]
     shapes = [:ltriangle, :rtriangle]
+    X, _, Z, C, _ = oms
 
-    c_idx = findfirst.(eachrow(C[:, :, t]))
-    s_idx = findfirst.(eachrow(B))
+    # c_idx = findfirst.(eachrow(C[:, :, t]))
 
     p = scatter(eachcol(X[:, :, t])...;
-                c=colors[c_idx],
+                # c=colors[c_idx],
                 # m=shapes[s_idx],
                 legend=:none,
-                xlims=(mins[1], maxs[1]),
-                ylims=(mins[2], maxs[2]))
+                xlims=oms.dom[1],
+                ylims=oms.dom[2]
+            )
 
     scatter!(p,
              eachcol(Z[:, :, t])...;
@@ -23,18 +50,27 @@ function plot_frame(X, Y, Z, B, C, t; title="Simulation",
              markerstrokecolor=:white,
              markerstrokewidth=3,
              c=colors,
-             title="$(title) at step $(t)",)
+             title="$(title) at step $(t)"
+            )
 
     return p
 end
 
-function plot_evolution(X, Y, Z, B, C, filename; title="",)
-    T = size(X, 3)
-    colwise_mins = mapslices(minimum, X; dims=1)
-    colwise_maxs = mapslices(maximum, X; dims=1)
+# function plot_evolution(X, Y, Z, B, C, filename; title="")
+#     T = size(X, 3)
+#     colwise_mins = mapslices(minimum, X; dims=1)
+#     colwise_maxs = mapslices(maximum, X; dims=1)
 
-    anim = @animate for t in 1:T
-        plot_frame(X, Y, Z, B, C, t; title=title, mins=colwise_mins, maxs=colwise_maxs)
+#     anim = @animate for t in 1:T
+#         plot_frame(X, Y, Z, B, C, t; title=title, mins=colwise_mins, maxs=colwise_maxs)
+#     end
+
+#     return gif(anim, filename; fps=15)
+# end
+
+function evolution(oms::OpinionModelSimulation, filename; title="")
+    anim = @animate for t in 1:length(oms)
+        frame(oms, t, title=title)
     end
 
     return gif(anim, filename; fps=15)
