@@ -65,8 +65,8 @@ function simulate!(omp::OpinionModelProblem{T,D};
     solver_meta = BespokeSolver(collect(range(zero(T); step=dt, length=Nt)))
 
     # return rX, rY, rZ, rC, rR
-    return OpinionModelSimulation{T,D,BespokeSolver}(omp.p, omp.domain, Nt, solver_meta, rX,
-                                                     rY, rZ, rC, rR)
+    return ModelSimulation{T,D,BespokeSolver}(omp.p, omp.domain, Nt, solver_meta, rX,
+                                              rY, rZ, rC, rR)
 end
 
 function drift(du, u, p, t)
@@ -152,7 +152,7 @@ end
 
 # Constructor to go directly from "native" problem def. to diffeq
 function simulate!(omp::OpinionModelProblem{T,D}, time::Tuple{T,T};
-                   seed=MersenneTwister())::OpinionModelSimulation where {T,D}
+                   seed=MersenneTwister())::ModelSimulation where {T,D}
     # Seeding the RNG
     Random.seed!(seed)
 
@@ -166,8 +166,8 @@ function simulate!(omp::OpinionModelProblem{T,D}, time::Tuple{T,T};
 
     # TODO: Maybe use the retcode from diffeq to warn here.
 
-    return OpinionModelSimulation{T,D,DiffEqSolver}(diffeq_sol, omp.domain, B_cache,
-                                                    diffeq_prob.p.p)
+    return ModelSimulation{T,D,DiffEqSolver}(diffeq_sol, omp.domain, B_cache,
+                                             diffeq_prob.p.p)
 end
 
 function simulate!(sde_omp::SDEProblem; seed=MersenneTwister())
@@ -183,6 +183,6 @@ function simulate!(sde_omp::SDEProblem; seed=MersenneTwister())
 
     domain = _array_bounds(sde_omp.u0) # Domain is the bounding box of initial opinions
 
-    return OpinionModelSimulation{Float64,2,DiffEqSolver}(diffeq_sol, domain, B_cache,
-                                                          sde_omp.p.p)
+    return ModelSimulation{Float64,2,DiffEqSolver}(diffeq_sol, domain, B_cache,
+                                                   sde_omp.p.p)
 end

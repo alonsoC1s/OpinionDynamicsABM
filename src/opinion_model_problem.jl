@@ -91,7 +91,7 @@ end
 function OpinionModelProblem(dom::Vararg{Tuple{T,T},D}; p=ModelParams(),
                              seed=MersenneTwister(),
                              AgAgNetF::Function=I -> trues(p.n, p.n)) where {D,
-                                                                              T<:AbstractFloat}
+                                                                             T<:AbstractFloat}
     # We divide the domain into orthants, and each orthant has 1 influencer
     p.L != 2^D && throw(ArgumentError("Number of influencers has to be 2^dim"))
 
@@ -173,7 +173,7 @@ struct DiffEqSolver <: AbstractSolver
     # interpolator to make comparisons at the exact same timepoints.
 end
 
-struct OpinionModelSimulation{T<:AbstractFloat,D,S<:AbstractSolver}
+struct ModelSimulation{T<:AbstractFloat,D,S<:AbstractSolver}
     p::ModelParams{T} # Model parameters
     dom::NTuple{D,Tuple{T,T}} # Domain of Opinion Space
     nsteps::Integer # Number of steps the solver used
@@ -186,23 +186,23 @@ struct OpinionModelSimulation{T<:AbstractFloat,D,S<:AbstractSolver}
 end
 
 # Implement destructuring via iteration
-Base.iterate(oms::OpinionModelSimulation) = (oms.X, Val(:Y))
-Base.iterate(oms::OpinionModelSimulation, ::Val{:Y}) = (oms.Y, Val(:Z))
-Base.iterate(oms::OpinionModelSimulation, ::Val{:Z}) = (oms.Z, Val(:C))
-Base.iterate(oms::OpinionModelSimulation, ::Val{:C}) = (oms.C, Val(:R))
-Base.iterate(oms::OpinionModelSimulation, ::Val{:R}) = (oms.R, Val(:done))
-Base.iterate(oms::OpinionModelSimulation, ::Val{:done}) = nothing
+Base.iterate(oms::ModelSimulation) = (oms.X, Val(:Y))
+Base.iterate(oms::ModelSimulation, ::Val{:Y}) = (oms.Y, Val(:Z))
+Base.iterate(oms::ModelSimulation, ::Val{:Z}) = (oms.Z, Val(:C))
+Base.iterate(oms::ModelSimulation, ::Val{:C}) = (oms.C, Val(:R))
+Base.iterate(oms::ModelSimulation, ::Val{:R}) = (oms.R, Val(:done))
+Base.iterate(oms::ModelSimulation, ::Val{:done}) = nothing
 
-Base.length(oms::OpinionModelSimulation) = size(oms.X, 3)
-Base.eltype(oms::OpinionModelSimulation{T,D,S}) where {T,D,S} = T
-solvtype(oms::OpinionModelSimulation{T,D,S}) where {T,D,S} = S
+Base.length(oms::ModelSimulation) = size(oms.X, 3)
+Base.eltype(oms::ModelSimulation{T,D,S}) where {T,D,S} = T
+solvtype(oms::ModelSimulation{T,D,S}) where {T,D,S} = S
 
-function OpinionModelSimulation{T,D,DiffEqSolver}(sol::S,
-                                                  dom::NTuple{D,Tuple{T,T}},
-                                                  cache::IntCache,
-                                                  p::ModelParams{T}) where {T,D,
-                                                                            S<:SciMLBase.AbstractODESolution,
-                                                                            IntCache<:DiffEqCallbacks.SavedValues}
+function ModelSimulation{T,D,DiffEqSolver}(sol::S,
+                                           dom::NTuple{D,Tuple{T,T}},
+                                           cache::IntCache,
+                                           p::ModelParams{T}) where {T,D,
+                                                                     S<:SciMLBase.AbstractODESolution,
+                                                                     IntCache<:DiffEqCallbacks.SavedValues}
     U = reshape(sol, p.n + p.L + p.M, :, length(sol)) # FIXME: Maybe use `stack`
 
     # FIXME: I could hard code this, or use the smart version published in
@@ -223,11 +223,11 @@ function OpinionModelSimulation{T,D,DiffEqSolver}(sol::S,
 
     solver_meta = DiffEqSolver(sol)
 
-    return OpinionModelSimulation{T,D,DiffEqSolver}(p, dom, length(sol.t), solver_meta, X,
-                                                    Y, Z, C, R)
+    return ModelSimulation{T,D,DiffEqSolver}(p, dom, length(sol.t), solver_meta, X,
+                                             Y, Z, C, R)
 end
 
-function Base.show(io::IO, oms::OpinionModelSimulation)
+function Base.show(io::IO, oms::ModelSimulation)
     return print("""
                  Simulation of the ABM Opinion Model with:
                  - $(oms.p.n) agents
@@ -239,8 +239,8 @@ end
 # Functions for comparing solutions
 
 function Base.:-(s1::SBe,
-                 s2::SD) where {T,D,SBe<:OpinionModelSimulation{T,D,BespokeSolver},
-                                SD<:OpinionModelSimulation{T,D,DiffEqSolver}}
+                 s2::SD) where {T,D,SBe<:ModelSimulation{T,D,BespokeSolver},
+                                SD<:ModelSimulation{T,D,DiffEqSolver}}
     interpolated_sol = s2.solver.sol.(s1.solver.tstops) |> stack
     stacked_sol = vcat(s1.X, s1.Y, s1.Z)
 
@@ -248,8 +248,8 @@ function Base.:-(s1::SBe,
 end
 
 function Base.:-(s1::SD,
-                 s2::SBe) where {T,D,SBe<:OpinionModelSimulation{T,D,BespokeSolver},
-                                 SD<:OpinionModelSimulation{T,D,DiffEqSolver}}
+                 s2::SBe) where {T,D,SBe<:ModelSimulation{T,D,BespokeSolver},
+                                 SD<:ModelSimulation{T,D,DiffEqSolver}}
     interpolated_sol = s1.solver.sol.(s2.solver.tstops) |> stack
     stacked_sol = vcat(s2.X, s2.Y, s2.Z)
 
@@ -260,7 +260,7 @@ end
 
 function Base.isapprox(s1::Sim, s2::Sim; rtol::Real=atol > 0 ? 0 : √eps(T),
                        atol::Real=0) where {T,D,
-                                            Sim<:OpinionModelSimulation{T,D,BespokeSolver}}
+                                            Sim<:ModelSimulation{T,D,BespokeSolver}}
     # Check maximum elementwise differences are below the tolerance
     ΔX = s1.X .- s2.X
     ΔY = s1.Y .- s2.Y
@@ -271,7 +271,7 @@ end
 
 function Base.isapprox(s1::SBe, s2::SD; rtol::Real=atol > 0 ? 0 : √eps(T),
                        atol::Real=0) where {T,D,
-                                            SBe<:OpinionModelSimulation{T,D,BespokeSolver},
-                                            SD<:OpinionModelSimulation{T,D,DiffEqSolver}}
+                                            SBe<:ModelSimulation{T,D,BespokeSolver},
+                                            SD<:ModelSimulation{T,D,DiffEqSolver}}
     return Δ_isapprox(s1 - s2, atol, rtol)
 end

@@ -28,7 +28,7 @@
 #     return p
 # end
 
-function frame(oms::OpinionModelSimulation, t; title = "Simulation")
+function frame(oms::ModelSimulation, t; title="Simulation")
     colors = [:red, :green, :blue, :black]
     shapes = [:ltriangle, :rtriangle]
     X, _, Z, C, _ = oms
@@ -40,8 +40,7 @@ function frame(oms::OpinionModelSimulation, t; title = "Simulation")
                 # m=shapes[s_idx],
                 legend=:none,
                 xlims=oms.dom[1],
-                ylims=oms.dom[2]
-            )
+                ylims=oms.dom[2])
 
     scatter!(p,
              eachcol(Z[:, :, t])...;
@@ -50,8 +49,7 @@ function frame(oms::OpinionModelSimulation, t; title = "Simulation")
              markerstrokecolor=:white,
              markerstrokewidth=3,
              c=colors,
-             title="$(title) at step $(t)"
-            )
+             title="$(title) at step $(t)")
 
     return p
 end
@@ -68,9 +66,9 @@ end
 #     return gif(anim, filename; fps=15)
 # end
 
-function evolution(oms::OpinionModelSimulation, filename; title="")
+function evolution(oms::ModelSimulation, filename; title="")
     anim = @animate for t in 1:length(oms)
-        frame(oms, t, title=title)
+        frame(oms, t; title=title)
     end
 
     return gif(anim, filename; fps=15)
