@@ -39,16 +39,16 @@ function simulate!(omp::OpinionModelProblem{T,D};
 
         # FIXME: Try using the dotted operators to fuse vectorized operations
         # Agents movement
-        FA = agent_drift(X, Y, Z, A, B, C, omp.p)
+        FA = agent_drift(X, Y, Z, A, B, C, a, b, c)
         rX[:, :, i + 1] .= X + dt * FA + σ * sqrt(dt) * randn(n, D)
 
         # Media movements
-        FM = media_drift(X, Y, B)
-        rY[:, :, i + 1] .= Y + (dt / Γ) * FM + (σ̃ / Γ) * sqrt(dt) * randn(M, D)
+        FM = media_drift(X, Y, B, Γ)
+        rY[:, :, i + 1] .= Y + dt * FM + (σ̃ / Γ) * sqrt(dt) * randn(M, D)
 
         # Influencer movements
-        FI = influencer_drift(X, Z, C)
-        rZ[:, :, i + 1] .= Z + (dt / γ) * FI + (σ̂ / γ) * sqrt(dt) * randn(L, D)
+        FI = influencer_drift(X, Z, C, γ)
+        rZ[:, :, i + 1] .= Z + dt * FI + (σ̂ / γ) * sqrt(dt) * randn(L, D)
 
         # Change influencers
         rates = influencer_switch_rates(X, Z, B, C, η)
@@ -80,13 +80,12 @@ function drift(du, u, p, t)
     Y = @view u[media]
     Z = @view u[influencers]
 
-    # FIXME: Make drift functions depend explicitly on a, b, c, γ, Γ
     # Agents SDE
-    du[agents] .= agent_drift(X, Y, Z, p.A, p.B, p.C, p.p)
+    du[agents] .= agent_drift(X, Y, Z, p.A, p.B, p.C, p.a, p.b, p.c)
     # Media drift
-    du[media] .= (1 / p.Γ) .* media_drift(X, Y, p.B)
+    du[media] .= media_drift(X, Y, p.B, p.Γ)
     # Influencer SDE
-    du[influencers] .= (1 / p.γ) .* influencer_drift(X, Z, p.C)
+    du[influencers] .= influencer_drift(X, Z, p.C, p.γ)
 
     return nothing
 end
@@ -159,7 +158,8 @@ function simulate!(omp::OpinionModelProblem{T,D}, time::Tuple{T,T}; dt::T=0.01,
 
     # Defining the callbacks
     C_cache = SavedValues(Float64, BitMatrix)
-    saving_callback = SavingCallback(save_C, C_cache; saveat=dt, save_end=false, save_start = true)
+    saving_callback = SavingCallback(save_C, C_cache; saveat=dt, save_end=false,
+                                     save_start=true)
     cbs = CallbackSet(influencer_switching_callback, saving_callback)
 
     diffeq_prob = build_sdeproblem(omp, time)
@@ -178,7 +178,8 @@ function simulate!(sde_omp::SDEProblem; dt::T=0.01, seed=MersenneTwister()) wher
 
     # Defining the callbacks
     B_cache = SavedValues(Float64, BitMatrix)
-    saving_callback = SavingCallback(save_B, B_cache; saveat=dt, save_end=false, save_start = true)
+    saving_callback = SavingCallback(save_B, B_cache; saveat=dt, save_end=false,
+                                     save_start=true)
     cbs = CallbackSet(influencer_switching_callback, saving_callback)
 
     diffeq_sol = solve(sde_omp, SRIW1(); callback=cbs, alg_hints=:additive,

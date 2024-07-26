@@ -145,47 +145,46 @@ function follower_average(X::AbstractVecOrMat, Network::BitMatrix)
 end
 
 """
-    agent_drift(X, M, I, A, B, C, p)
+    agent_drift(X, M, I, A, B, C, a, b, c)
 
 Calculates the drift force acting on agents, which is the weighted sum of the Agent-Agent,
 Media-Agent and Influencer-Agent forces of attraction.
 """
 function agent_drift(X::T, Y::T, Z::T, A::Bm, B::Bm, C::Bm,
-                     p::ModelParams) where {T<:AbstractVecOrMat,Bm<:BitMatrix}
-    a, b, c = p.a, p.b, p.c
+                     a, b, c) where {T<:AbstractVecOrMat,Bm<:BitMatrix}
     return a * AgAg_attraction(X, A) +
            b * MedAg_attraction(X, Y, B) +
            c * InfAg_attraction(X, Z, C)
 end
 
 """
-    media_drift(X, Y, B; f = identity)
+    media_drift(X, Y, B, Γ; f = identity)
 
 Calculates the drift force acting on media outlets, as described in eq. (4).
 """
-function media_drift(X::T, Y::T, B::Bm;
+function media_drift(X::T, Y::T, B::Bm, Γ;
                      f=identity) where {T<:AbstractVecOrMat,Bm<:BitMatrix}
     f_full(x) = ismissing(x) ? 0 : f(x)
     force = similar(Y)
     x_tilde = follower_average(X, B)
     force = f_full.(x_tilde .- Y)
 
-    return force
+    return (1 / Γ) .* force
 end
 
 """
-    influencer_drift(X, Z, C, g = identity)
+    influencer_drift(X, Z, C, γ, g = identity)
 
 Calculates the drift force action on influencers as described in eq. (5).
 """
-function influencer_drift(X::T, Z::T, C::Bm;
+function influencer_drift(X::T, Z::T, C::Bm, γ;
                           g=identity) where {T<:AbstractVecOrMat,Bm<:BitMatrix}
     g_full(x) = ismissing(x) ? 0 : g(x)
     force = similar(Z)
     x_hat = follower_average(X, C)
     force = g_full.(x_hat .- Z)
 
-    return force
+    return (1 / γ) .* force
 end
 
 """
@@ -283,4 +282,3 @@ function switch_influencer(C::Bm, X::T, Z::T, rates::U,
 
     return RC
 end
-
