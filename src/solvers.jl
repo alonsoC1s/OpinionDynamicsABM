@@ -131,7 +131,7 @@ true_condition = function (u, t, integrator)
 end
 
 influencer_switching_callback = DiscreteCallback(true_condition, influencer_switch_affect!;
-                                                 save_positions=(true, true))
+                                                 save_positions=(true, false))
 
 # save_B(u, t, integrator) = integrator.p.C
 save_C = function (u, t, integrator)
@@ -152,18 +152,19 @@ function build_sdeproblem(omp::OpinionModelProblem{T,D}, time::Tuple{T,T}) where
 end
 
 # Constructor to go directly from "native" problem def. to diffeq
-function simulate!(omp::OpinionModelProblem{T,D}, time::Tuple{T,T};
+function simulate!(omp::OpinionModelProblem{T,D}, time::Tuple{T,T}; dt::T=0.01,
                    seed=MersenneTwister())::ModelSimulation where {T,D}
     # Seeding the RNG
     Random.seed!(seed)
 
     # Defining the callbacks
     C_cache = SavedValues(Float64, BitMatrix)
-    saving_callback = SavingCallback(save_C, C_cache; save_everystep=true)
+    saving_callback = SavingCallback(save_C, C_cache; saveat=dt, save_end=false, save_start = true)
     cbs = CallbackSet(influencer_switching_callback, saving_callback)
 
     diffeq_prob = build_sdeproblem(omp, time)
-    diffeq_sol = solve(diffeq_prob, SRIW1(); callback=cbs, alg_hints=:additive)
+    diffeq_sol = solve(diffeq_prob, SRIW1(); callback=cbs, alg_hints=:additive,
+                       save_everystep=true)
 
     # TODO: Maybe use the retcode from diffeq to warn here.
 
@@ -171,16 +172,17 @@ function simulate!(omp::OpinionModelProblem{T,D}, time::Tuple{T,T};
                                              diffeq_prob.p.p)
 end
 
-function simulate!(sde_omp::SDEProblem; seed=MersenneTwister())
+function simulate!(sde_omp::SDEProblem; dt::T=0.01, seed=MersenneTwister()) where {T}
     # Seeding the RNG
     Random.seed!(seed)
 
     # Defining the callbacks
     B_cache = SavedValues(Float64, BitMatrix)
-    saving_callback = SavingCallback(save_B, B_cache; save_everystep=true, save_start=true)
+    saving_callback = SavingCallback(save_B, B_cache; saveat=dt, save_end=false, save_start = true)
     cbs = CallbackSet(influencer_switching_callback, saving_callback)
 
-    diffeq_sol = solve(sde_omp, SRIW1(); callback=cbs, alg_hints=:additive)
+    diffeq_sol = solve(sde_omp, SRIW1(); callback=cbs, alg_hints=:additive,
+                       save_everystep=true)
 
     domain = _array_bounds(sde_omp.u0) # Domain is the bounding box of initial opinions
 
