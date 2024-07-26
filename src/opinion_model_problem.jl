@@ -31,13 +31,19 @@ struct ModelParams{T<:Real} # FIXME: Parametrizing on T is unecessary
     frictionM::T
 end
 
-function ModelParams(L, M, n, η, a, b, c, σ, σ̂, σ̃, FI, FM)
-    return ModelParams(L, M, n, promote(η, a, b, c, σ, σ̂, σ̃, FI, FM)...)
+function ModelParams(L, M, n, η, a, b, c, σ, σ̂, σ̃, γ, Γ)
+    return ModelParams(L, M, n, promote(η, a, b, c, σ, σ̂, σ̃, γ, Γ)...)
 end
 
 function ModelParams(;
-                     L=4, M=2, n=250, η=15, a=1, b=2, c=4, σ=0.5, σ̂=0, σ̃=0, FI=10, FM=100)
-    return ModelParams(L, M, n, η, a, b, c, σ, σ̂, σ̃, FI, FM)
+                     L=4, M=2, n=250, η=15, a=1, b=2, c=4, σ=0.5, σ̂=0, σ̃=0, γ=10, Γ=100)
+    return ModelParams(L, M, n, η, a, b, c, σ, σ̂, σ̃, γ, Γ)
+end
+
+function Base.show(io::IO, params::ModelParams)
+    L, M, n, η, a, b, c, σ, σ̂, σ̃, γ, Γ = params
+    return print("Opinion Model parameters: η=$(η), a=$(a), b=$(b), c=$(c), σ=$(σ), " *
+                 "σ_hat=$(σ̂), σ_tilde=$(σ̃), γ=$(γ), Γ=$(Γ)")
 end
 
 # iteration for destructuring into components
