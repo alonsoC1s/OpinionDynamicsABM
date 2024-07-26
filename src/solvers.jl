@@ -80,6 +80,7 @@ function drift(du, u, p, t)
     Y = @view u[media]
     Z = @view u[influencers]
 
+    # FIXME: Make drift functions depend explicitly on a, b, c, γ, Γ
     # Agents SDE
     du[agents] .= agent_drift(X, Y, Z, p.A, p.B, p.C, p.p)
     # Media drift
@@ -92,9 +93,9 @@ end
 
 function noise(du, u, p, t)
     # Defining the indices for readability
-    agents = CartesianIndices((firstindex(u):(p.n), axes(u, 2)))
-    media = CartesianIndices(((p.n + 1):(p.n + p.M), axes(u, 2)))
-    influencers = CartesianIndices(((p.n + p.M + 1):(p.n + p.M + p.L), axes(u, 2)))
+    agents = CartesianIndices((firstindex(du):(p.n), axes(du, 2)))
+    media = CartesianIndices(((p.n + 1):(p.n + p.M), axes(du, 2)))
+    influencers = CartesianIndices(((p.n + p.M + 1):(p.n + p.M + p.L), axes(du, 2)))
 
     # Additive noise
     du[agents] .= p.σ
@@ -139,13 +140,13 @@ end
 
 function build_sdeproblem(omp::OpinionModelProblem{T,D}, time::Tuple{T,T}) where {T,D}
     mp = omp.p
+    X, Y, Z, A, B, C = omp
+    L, M, n, η, a, b, c, σ, σ̂, σ̃, γ, Γ = omp.p
     # Stack all important parameters to be fed to the integrator
-    # FIXME: This is ugly, use destructuring
-    P = (L=mp.L, M=mp.M, n=mp.n, η=mp.η, a=mp.a, b=mp.b, c=mp.c, σ=mp.σ, σ̂=mp.σ̂, σ̃=mp.σ̃,
-         γ=mp.frictionI, Γ=mp.frictionM, A=omp.AgAgNet, B=omp.AgMedNet, C=omp.AgInfNet,
+    P = (L=L, M=M, n=n, η=η, a=a, b=b, c=c, σ=σ, σ̂=σ̂, σ̃=σ̃, γ=γ, Γ=Γ, A=A, B=B, C=C,
          p=mp)
 
-    u₀ = vcat(omp.X, omp.M, omp.I)
+    u₀ = vcat(X, Y, Z)
 
     return SDEProblem(drift, noise, u₀, time, P)
 end
