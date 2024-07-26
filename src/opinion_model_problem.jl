@@ -179,7 +179,7 @@ struct DiffEqSolver <: AbstractSolver
     # interpolator to make comparisons at the exact same timepoints.
 end
 
-struct ModelSimulation{T<:AbstractFloat,D,S<:AbstractSolver}
+mutable struct ModelSimulation{T<:AbstractFloat,D,S<:AbstractSolver}
     p::ModelParams{T} # Model parameters
     dom::NTuple{D,Tuple{T,T}} # Domain of Opinion Space
     nsteps::Integer # Number of steps the solver used
@@ -190,6 +190,8 @@ struct ModelSimulation{T<:AbstractFloat,D,S<:AbstractSolver}
     C::BitArray{3} # Adjacency matrix of Agents-Influencers
     R::AbstractArray{T,3} # Computed influencer switching rates for Agents
 end
+
+# TODO: Make some Type aliases to make code less obnoxious (e.g. isless)
 
 # Implement destructuring via iteration
 Base.iterate(oms::ModelSimulation) = (oms.X, Val(:Y))
@@ -233,6 +235,29 @@ function ModelSimulation{T,D,DiffEqSolver}(sol::S,
                                              Y, Z, C, R)
 end
 
+"""
+    interpolate!(oms::ModelSimulation{T, D, DiffEqSolver}, tstops) where {T, D}
+
+Mutates the simulation `oms` to re-sample the timeseries at the explcitly given `tstops`
+instead of the points where the DiffEq integrator saved by exploiting the enclosed SciML
+ODESolution.
+"""
+function interpolate!(oms::ModelSimulation{T,D,DiffEqSolver}, tstops) where {T,D}
+    U = oms.solver.sol.(tstops) |> stack
+    p = oms.p
+
+    agents = CartesianIndices((firstindex(U):(p.n), axes(U, 2), axes(U, 3)))
+    media = CartesianIndices(((p.n + 1):(p.n + p.M), axes(U, 2), axes(U, 3)))
+    influencers = CartesianIndices(((p.n + p.M + 1):(p.n + p.M + p.L), axes(U, 2),
+                                    axes(U, 3)))
+
+    oms.X = U[agents]
+    oms.Y = U[media]
+    oms.Z = U[influencers]
+
+    @assert length(oms) == length(tstops)
+end
+
 function Base.show(io::IO, oms::ModelSimulation)
     return print("""
                  Simulation of the ABM Opinion Model with:
@@ -247,6 +272,7 @@ end
 function Base.:-(s1::SBe,
                  s2::SD) where {T,D,SBe<:ModelSimulation{T,D,BespokeSolver},
                                 SD<:ModelSimulation{T,D,DiffEqSolver}}
+    # FIXME: Use `interpolate!`
     interpolated_sol = s2.solver.sol.(s1.solver.tstops) |> stack
     stacked_sol = vcat(s1.X, s1.Y, s1.Z)
 
@@ -264,9 +290,12 @@ end
 
 # FIXME: Make these operators commutative, if not already so.
 
-function Base.isapprox(s1::Sim, s2::Sim; rtol::Real=atol > 0 ? 0 : √eps(T),
-                       atol::Real=0) where {T,D,
-                                            Sim<:ModelSimulation{T,D,BespokeSolver}}
+function Base.isapprox(s1::Sim,
+                       s2::Sim;
+                       atol::Real=0,
+                       rtol::Real=atol > 0 ? 0 : √eps(T)) where {T,D,
+                                                                 Sim<:ModelSimulation{T,D,
+                                                                                      BespokeSolver}}
     # Check maximum elementwise differences are below the tolerance
     ΔX = s1.X .- s2.X
     ΔY = s1.Y .- s2.Y
@@ -275,9 +304,13 @@ function Base.isapprox(s1::Sim, s2::Sim; rtol::Real=atol > 0 ? 0 : √eps(T),
     return arrays_areapprox(ΔX, ΔY, ΔZ, atol, rtol)
 end
 
-function Base.isapprox(s1::SBe, s2::SD; rtol::Real=atol > 0 ? 0 : √eps(T),
-                       atol::Real=0) where {T,D,
-                                            SBe<:ModelSimulation{T,D,BespokeSolver},
-                                            SD<:ModelSimulation{T,D,DiffEqSolver}}
+function Base.isapprox(s1::SBe,
+                       s2::SD;
+                       atol::Real=0,
+                       rtol::Real=atol > 0 ? 0 : √eps(T)) where {T,D,
+                                                                 SBe<:ModelSimulation{T,D,
+                                                                                      BespokeSolver},
+                                                                 SD<:ModelSimulation{T,D,
+                                                                                     DiffEqSolver}}
     return Δ_isapprox(s1 - s2, atol, rtol)
 end
