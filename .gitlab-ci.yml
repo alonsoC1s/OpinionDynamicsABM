@@ -35,7 +35,7 @@ pages:
         doctest(OpinionDynamicsABM)
         include("docs/make.jl")'
     - mkdir -p public
-    - mv docs/build public/dev
+    - mv docs/build/* public/
   artifacts:
     paths:
       - public
