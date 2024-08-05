@@ -1,7 +1,5 @@
 
 """
-    ModelParams
-
 Wrapper for the Opinion Dynamics model parameters. The available parameters are:
 - `L::Int`: number of influencers
 - `M::Int`: number of media outlets
@@ -13,8 +11,8 @@ Wrapper for the Opinion Dynamics model parameters. The available parameters are:
 - `σ`: noise constant of the agent's stochastic movement
 - `σ̂`: (\\sigma\\hat) noise constant for influencer movement
 - `σ̃` (\\sigma\\tilde) noise constant for media movement
-- `frictionI`: friction constant for influencers
-- `frictionM`: friction constant for media outlets
+- `γ`: friction constant for influencers
+- `Γ`: friction constant for media outlets
 """
 struct ModelParams{T<:Real} # FIXME: Parametrizing on T is unecessary
     L::Int
@@ -27,14 +25,25 @@ struct ModelParams{T<:Real} # FIXME: Parametrizing on T is unecessary
     σ::T
     σ̂::T
     σ̃::T
-    frictionI::T
-    frictionM::T
+    γ::T
+    Γ::T
 end
 
 function ModelParams(L, M, n, η, a, b, c, σ, σ̂, σ̃, γ, Γ)
     return ModelParams(L, M, n, promote(η, a, b, c, σ, σ̂, σ̃, γ, Γ)...)
 end
 
+"""
+    ModelParams(L=4, M=2, n=250, η=15, a=1, b=2, c=4, σ=0.5, σ̂=0, σ̃=0, γ=10, Γ=100)
+
+Creates a `ModelParams` instance with the default values shown in the signature. Any
+parameter can be modified by passing it as a keyword argument.
+
+# Examples
+```julia-repl
+julia> deterministic_params = ModelParams(; σ=0.0, σ̂=0, σ̃=0)
+```
+"""
 function ModelParams(;
                      L=4, M=2, n=250, η=15, a=1, b=2, c=4, σ=0.5, σ̂=0, σ̃=0, γ=10, Γ=100)
     return ModelParams(L, M, n, η, a, b, c, σ, σ̂, σ̃, γ, Γ)
@@ -57,24 +66,69 @@ Base.iterate(p::ModelParams, ::Val{:c}) = (p.c, Val(:σ))
 Base.iterate(p::ModelParams, ::Val{:σ}) = (p.σ, Val(:σ̂))
 Base.iterate(p::ModelParams, ::Val{:σ̂}) = (p.σ̂, Val(:σ̃))
 Base.iterate(p::ModelParams, ::Val{:σ̃}) = (p.σ̃, Val(:γ))
-Base.iterate(p::ModelParams, ::Val{:γ}) = (p.frictionI, Val(:Γ))
-Base.iterate(p::ModelParams, ::Val{:Γ}) = (p.frictionM, Val(:done))
+Base.iterate(p::ModelParams, ::Val{:γ}) = (p.γ, Val(:Γ))
+Base.iterate(p::ModelParams, ::Val{:Γ}) = (p.Γ, Val(:done))
 Base.iterate(p::ModelParams, ::Val{:done}) = nothing
 
 """
-    OpinionModelProblem{T, D}
+Represents a `D`-dimensional opinion dynamics problem with specific `ModelParams`. See
+[`ModelParams`](@ref).
 
-encapsulates parameters and other properties of an Agent-Based model of Opinion Dynamics.
+## Fields
+- `p`: Instance of `ModelParams` defining problem-wide parameters.
+- `domain`: `D`-tuples representing the bounds of each dimenion of the opinion space.
+- `X`: Matrix of shape (`p.n` × `D`) containing the coordinates of agents in the model.
+    Agents are represented as rows.
+- `Y`: Matrix storing the coordinates of media agents of shape similar to `X`
+- `Z`: Matrix storing the coordinates of influencers.
+- `A`: Agent-Agent adjacency matrix
+- `B`: Agent-Media adjacency matrix
+- `C`: Agent-Influencer adjacency matrix
+
+## Constructors
+There are several ways of creating an instance of `OpinionModelProblem` depending on the
+initial data at hand:
+
+-   `OpinionModelProblem(domain..., p=ModelParams(), seed=MersenneTwister(), [AgAgNetF])`:
+    Creates a problem with the default parameters by specifying bounds of the
+    `D`-dimensional, rectangular opinion space (i.e. the space where the simulation will
+    take place). The bounds are given as a succesion of tuples. Agents are distributed
+    uniformly along the opinion space, setting a seed manually will affect the initial
+    positions. This is intended to be the main constructor
+
+    !!! warning
+    Specifying `domain` with mixed-type tuples will fail (and with a cryptic error).
+    Instead of passing (-2.0, 2), pass (-2.0, 2.0). See examples below.
+
+- `OpinionModelProblem(X₀ Z₀; p=ModelParams(), domain::NTuple{D,Tuple{T,T})`: Creates a
+    problem by providing the initial positions of agents and influencers. The model
+    parameters and domain of opinion space can optionally be given manually. If ommited,
+    the `ModelParams` are the default parameters (see [`ModelParams`](@ref)) and the
+    `domain` is inferred as the minima and maxima of `X₀ ∪ Z₀`.  
+
+-  `OpinionModelProblem(p::ModelParams, domain::NTuple{D, Tuple{T, T}}, X, Y, Z, A, B, C)`:
+    creates an opinion problem by explicitly filling every field. The constructor is not
+    intended to be used directly.
+
+## Examples
+
+```julia
+deterministic_params = ModelParams(;σ=0.0, σ̂=0, σ̃=0)
+# Create a problem over `[-2, 2] × [-2, 2]` with stochastic noise turned off
+omp = OpinionModelProblem((-2.0, 2.0), (-2.0, 2.0); p=deterministic_params)
+# Will throw an error because of the mixed-type tuples
+OpinionModelProblem((-2.0, 2), (-2, 2))
+```
 """
 struct OpinionModelProblem{T<:AbstractFloat,D}
     p::ModelParams{T} # Model parameters
     domain::NTuple{D,Tuple{T,T}} # Bounds of opinion space. Exactly D 2-ples of (min, max)
-    X::AbstractVecOrMat{T} # Array of Agents' positions
-    M::AbstractVecOrMat{T} # Array of Media positions
-    I::AbstractVecOrMat{T} # Array of Influencers' positions
-    AgInfNet::BitMatrix # Adjacency matrix of Agents-Influencers
-    AgAgNet::BitMatrix # Adjacency matrix of Agent-Agent interactions
-    AgMedNet::BitMatrix # Agent-media correspondence vector
+    X::AbstractVecOrMat{T} # Agent coordinates
+    Y::AbstractVecOrMat{T} # Media coordinates
+    Z::AbstractVecOrMat{T} # Influencer coordinates
+    A::BitMatrix # Agent-Agent adjacency matrix
+    B::BitMatrix # Agent-Media adjacency matrix
+    C::BitMatrix # Agent-Influencer adjaceny matrix
 end
 
 function Base.show(io::IO, omp::OpinionModelProblem{T,D}) where {T,D}
@@ -85,6 +139,15 @@ function Base.show(io::IO, omp::OpinionModelProblem{T,D}) where {T,D}
                  - $(omp.p.L) influencers
                  """)
 end
+
+# iteration for destructuring into components
+Base.iterate(omp::OpinionModelProblem) = (omp.X, Val(:M))
+Base.iterate(omp::OpinionModelProblem, ::Val{:M}) = (omp.Y, Val(:I))
+Base.iterate(omp::OpinionModelProblem, ::Val{:I}) = (omp.Z, Val(:A))
+Base.iterate(omp::OpinionModelProblem, ::Val{:A}) = (omp.A, Val(:B))
+Base.iterate(omp::OpinionModelProblem, ::Val{:B}) = (omp.B, Val(:C))
+Base.iterate(omp::OpinionModelProblem, ::Val{:C}) = (omp.C, Val(:done))
+Base.iterate(omp::OpinionModelProblem, ::Val{:done}) = nothing
 
 # function OpinionModelProblem(dom::Vararg{Tuple{Real,Real},D}; p=ModelParams(),
 #                              seed=MersenneTwister(),
@@ -109,10 +172,10 @@ function OpinionModelProblem(dom::Vararg{Tuple{T,T},D}; p=ModelParams(),
 
     # Create Agent-Influence network (n × L) by grouping individuals into quadrants
     # i,j-th entry is true if i-th agent follows the j-th influencer
-    AgInfNet = _orthantize(X) |> BitMatrix
+    C = _orthantize(X) |> BitMatrix
 
     # Placing the influencers as the barycenter of agents per orthant
-    I = _place_influencers(X, AgInfNet)
+    I = _place_influencers(X, C)
 
     if D == 1
         X = vec(X)
@@ -122,53 +185,46 @@ function OpinionModelProblem(dom::Vararg{Tuple{T,T},D}; p=ModelParams(),
     return OpinionModelProblem{T,D}(X, I; p=p, dom=dom, AgAgNetF=AgAgNetF)
 end
 
-function OpinionModelProblem{T,D}(agents_init::AbstractArray{T},
-                                  influencers_init::AbstractArray{T};
-                                  p=ModelParams(; L=size(influencers_init, 1),
-                                                n=size(agents_init, 1)),
-                                  dom::NTuple{D,Tuple{T,T}}=_array_bounds(agents_init),
+Z₀
+function OpinionModelProblem{T,D}(X₀::AbstractArray{T},
+                                  Z₀::AbstractArray{T};
+                                  p=ModelParams(; L=size(Z₀, 1), n=size(X₀, 1)),
+                                  dom::NTuple{D,Tuple{T,T}}=_array_bounds(X₀),
                                   AgAgNetF::Function=I -> trues(p.n, p.n)) where {D,
                                                                                   T<:AbstractFloat}
-    p.L != size(influencers_init, 1) &&
+    p.L != size(Z₀, 1) &&
         throw(ArgumentError("`influencers_init` defined more influencers than contemplated" *
                             "in the parameters $(p)"))
 
-    p.n != size(agents_init, 1) &&
+    p.n != size(X₀, 1) &&
         throw(ArgumentError("`agents_init` defined more agents than contemplated in the" *
                             "parameters $(p)"))
 
     # Create Agent-Influence network (n × L) by grouping individuals into quadrants
     # i,j-th entry is true if i-th agent follows the j-th influencer
-    AgInfNet = _orthantize(agents_init) |> BitMatrix
+    C = _orthantize(X₀) |> BitMatrix
 
     # Defining the Agent-Agent interaction matrix as a function of the Agent-Influencer
     # matrix. In the default case, the matrix represents a fully connected network. In other
     # cases, the adjacency is computed with the adjacency to influencers.
-    AgAgNet = AgAgNetF(AgInfNet)
+    A = AgAgNetF(AgInfNet)
 
     # Assign agents to media outlet randomly s.t. every agent is connected to 1 and only 1 media.
-    AgMedNet = _media_network(p.n, p.M)
+    B = _media_network(p.n, p.M)
 
     # We consider just 2 media outlets at the "corners"
-    M = vcat(fill(-one(T), (1, D)), fill(one(T), (1, D)))
+    Y = vcat(fill(-one(T), (1, D)), fill(one(T), (1, D)))
 
-    return OpinionModelProblem{T,D}(p, dom, agents_init, M, influencers_init, AgInfNet,
-                                    AgAgNet,
-                                    AgMedNet)
+    return OpinionModelProblem{T,D}(p, dom, X₀, Y, Z₀, A, B, C)
 end
-
-# iteration for destructuring into components
-Base.iterate(omp::OpinionModelProblem) = (omp.X, Val(:M))
-Base.iterate(omp::OpinionModelProblem, ::Val{:M}) = (omp.M, Val(:I))
-Base.iterate(omp::OpinionModelProblem, ::Val{:I}) = (omp.I, Val(:AgAgNet))
-Base.iterate(omp::OpinionModelProblem, ::Val{:AgAgNet}) = (omp.AgAgNet, Val(:AgMedNet))
-Base.iterate(omp::OpinionModelProblem, ::Val{:AgMedNet}) = (omp.AgMedNet, Val(:AgInfNet))
-Base.iterate(omp::OpinionModelProblem, ::Val{:AgInfNet}) = (omp.AgInfNet, Val(:done))
-Base.iterate(omp::OpinionModelProblem, ::Val{:done}) = nothing
 
 # Supporting structs for the SciML DiffEq based solver
 
+"""
+$(TYPEDEF)
+"""
 abstract type AbstractSolver end
+
 struct BespokeSolver <: AbstractSolver
     tstops::AbstractVector{Float64}
 end
@@ -179,6 +235,20 @@ struct DiffEqSolver <: AbstractSolver
     # interpolator to make comparisons at the exact same timepoints.
 end
 
+"""
+Defines a full simulation of a `D`-dimensional OpinionDynamicsProblem simulated with
+either [`BespokeSolver`](@ref) or [`DiffEqSolver`](@ref).
+
+## Fields
+- `p`: The [`ModelParams`](@ref) of the simulated model.
+- `dom`: The domain of opinion space expressed as tuples of bounds, one per dimension.
+- `nsteps`: The total number of steps the simulation took.
+- `X`: A tensor containing the coordinates of agents at each time step.
+- `Y`: Tensor with media coordinates over time.
+- `Z`: Tensor with influencer coordinates over time.
+- `C`: Tensor of Agent-Influencer adjacency matrices stacked.
+- `R`: Computed jumping rates used for influencer switching
+"""
 mutable struct ModelSimulation{T<:AbstractFloat,D,S<:AbstractSolver}
     p::ModelParams{T} # Model parameters
     dom::NTuple{D,Tuple{T,T}} # Domain of Opinion Space
