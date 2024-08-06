@@ -1,8 +1,8 @@
 # OpinionDynamicsABM
 
-[![Dev](https://img.shields.io/badge/docs-dev-blue.svg)](https://amartine.gitlab.io/OpinionDynamicsABM.jl/dev)
-[![Build Status](https://github.com/amartine/OpinionDynamicsABM.jl/badges/main/pipeline.svg)](https://github.com/amartine/OpinionDynamicsABM.jl/pipelines)
-[![Coverage](https://github.com/amartine/OpinionDynamicsABM.jl/badges/main/coverage.svg)](https://github.com/amartine/OpinionDynamicsABM.jl/commits/main)
+[![Docs](https://computationalhumanities.pages.zib.de/opiniondynamicsabm.jl/)](https://amartine.gitlab.io/OpinionDynamicsABM.jl/dev)
+[![Build Status](https://git.zib.de/computationalhumanities/opiniondynamicsabm.jl/badges/main/pipeline.svg)]()
+[![Coverage](https://git.zib.de/computationalhumanities/opiniondynamicsabm.jl/badges/main/coverage.svg)]()
 
 Re-implementation of the code used to simulate the model published in ["Modelling opinion
 dynamics under the impact of influencer and media
