@@ -98,7 +98,7 @@ initial data at hand:
 
 !!! warning
     Specifying `domain` with mixed-type tuples will fail (and with a cryptic error).
-    Instead of passing (-2.0, 2), pass (-2.0, 2.0). See examples below.
+    Instead of passing `(-2.0, 2)`, pass `(-2.0, 2.0)`. See examples below.
 
 - `OpinionModelProblem(X₀ Z₀; p=ModelParams(), domain::NTuple{D,Tuple{T,T})`: Creates a
     problem by providing the initial positions of agents and influencers. The model

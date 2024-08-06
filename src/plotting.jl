@@ -28,6 +28,12 @@ function plot_frame(X, Y, Z, B, C, t; title="Simulation",
     return p
 end
 
+"""
+    frame(oms::ModelSimulation, t; title = "Simulation")
+
+Plots a single point in time of the simulation `oms` as a scatterplot showing agents and
+influencers coded by color.
+"""
 function frame(oms::ModelSimulation, t; title="Simulation")
     colors = [:red, :green, :blue, :black]
     shapes = [:ltriangle, :rtriangle]
@@ -66,6 +72,12 @@ end
 #     return gif(anim, filename; fps=15)
 # end
 
+"""
+    evolution(oms::ModelSimulation, filename; [title])
+
+Plots the entire simulation `oms` as a gif where each frame corresponds to a timestep
+taken by the integration algorithm.
+"""
 function evolution(oms::ModelSimulation, filename; title="")
     anim = @animate for t in 1:length(oms)
         frame(oms, t; title=title)
@@ -74,6 +86,13 @@ function evolution(oms::ModelSimulation, filename; title="")
     return gif(anim, filename; fps=15)
 end
 
+"""
+    evolve_compare(s1::ModelSimulation{DiffEqSolver}, s2::ModelSimulation{BespokeSolver}, filename)
+
+Plots the evolution of simulations `s1` and `s2` side by side on a gif. The simulations
+are compared at the exact same timepoints, which are the timepoints where `BespokeSolver`
+acted.
+"""
 function evolve_compare(s1::A, s2::B, filename;
                         title="") where {T,D,A<:ModelSimulation{T,D,DiffEqSolver},
                                          B<:ModelSimulation{T,D,BespokeSolver}}

@@ -3,7 +3,8 @@
     simulate!(omp::OpinionModelProblem; Nt=200, dt=0.01, [seed])
 
 Simulates the evolution of the Opinion Dynamics model `omp` by solving the defining SDE
-via a hand-implemented Euler--Maruyama integrator with `Nt` steps of size `dt`.
+via a hand-implemented Euler--Maruyama integrator with `Nt` steps of size `dt`. Returns a
+`ModelSimulation{BespokeSolver}`
 """
 function simulate!(omp::OpinionModelProblem{T,D};
                    Nt=200,
@@ -137,7 +138,13 @@ save_C = function (u, t, integrator)
     return integrator.p.C
 end
 
-function build_sdeproblem(omp::OpinionModelProblem{T,D}, time::Tuple{T,T}) where {T,D}
+"""
+    build_sdeproblem(omp::OpinionModelProblem, tspan)
+
+Returns an `SDEProblem` suitable to be used with the SciML DifferentialEquations.jl
+ecosystem. 
+"""
+function build_sdeproblem(omp::OpinionModelProblem{T,D}, tspan::Tuple{T,T}) where {T,D}
     mp = omp.p
     X, Y, Z, A, B, C = omp
     L, M, n, η, a, b, c, σ, σ̂, σ̃, γ, Γ = omp.p
@@ -147,11 +154,17 @@ function build_sdeproblem(omp::OpinionModelProblem{T,D}, time::Tuple{T,T}) where
 
     u₀ = vcat(X, Y, Z)
 
-    return SDEProblem(drift, noise, u₀, time, P)
+    return SDEProblem(drift, noise, u₀, tspan, P)
 end
 
-# Constructor to go directly from "native" problem def. to diffeq
-function simulate!(omp::OpinionModelProblem{T,D}, time::Tuple{T,T}; dt::T=0.01,
+"""
+    simulate!(omp::OpinionModelProblem, tspan; dt=0.01, [seed])
+
+Simulates the evolution of the Opinion Dynamics model `omp` by solving the defining SDE
+via a DifferentialEquations.jl with the `SRIW1` algorithm and the appropriate callbacks.
+Produces a `ModelSimulation{DiffEqSolver}`.
+"""
+function simulate!(omp::OpinionModelProblem{T,D}, tspan::Tuple{T,T}; dt::T=0.01,
                    seed=MersenneTwister())::ModelSimulation where {T,D}
     # Seeding the RNG
     Random.seed!(seed)
@@ -162,7 +175,7 @@ function simulate!(omp::OpinionModelProblem{T,D}, time::Tuple{T,T}; dt::T=0.01,
                                      save_start=true)
     cbs = CallbackSet(influencer_switching_callback, saving_callback)
 
-    diffeq_prob = build_sdeproblem(omp, time)
+    diffeq_prob = build_sdeproblem(omp, tspan)
     diffeq_sol = solve(diffeq_prob, SRIW1(); callback=cbs, alg_hints=:additive,
                        save_everystep=true)
 
@@ -172,6 +185,12 @@ function simulate!(omp::OpinionModelProblem{T,D}, time::Tuple{T,T}; dt::T=0.01,
                                              diffeq_prob.p.p)
 end
 
+"""
+    simulate!(sde_omp::SDEProblem; dt=0.01, [seed])
+
+Simulates the opinion model problem defined in `sde_problem` by applying the appropriate
+callbacks and calling `solve` on the SDE. Produces a `ModelSimulation{DiffEqSolver}`.
+"""
 function simulate!(sde_omp::SDEProblem; dt::T=0.01, seed=MersenneTwister()) where {T}
     # Seeding the RNG
     Random.seed!(seed)

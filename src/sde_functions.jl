@@ -2,6 +2,24 @@
 # TODO: This could perhaps be optimized even further. One of the possibly good ideas would
 # be to allocate the forces vector once at the E-M solver level and pass a view to the
 # attraction functions. This would reduce memory usage by making everything in-place.
+@doc raw"""
+    AgAg_attraction(X, A; φ = x -> exp(-x))
+
+Computes the force collectively exerted on agents by other agents they are connected to.
+Returns the results as a matrix where the ``i,j-th`` entry represents the commulative
+force felt by agent ``i`` along dimension ``j``. 
+
+# Mathematical definition
+Mathematically, the function computes,
+```math
+\frac{1}{\sum_{j^\prime} w_{ij^{\prime}}} \sum_{j=1}^{N} w_{ij} \, (x_j - x_i),
+```
+where the interaction weights are:
+```math
+w_{ij} = A_{ij} \, \varphi(\| x_j - x_t \|).
+```
+The resulting row vectors are stored as rows of the matrix returned.
+"""
 function AgAg_attraction(X::AbstractVecOrMat{T}, A::BitMatrix; φ=x -> exp(-x)) where {T}
     I, D = size(X, 1), size(X, 2)
     J = size(X, 1) # Cheating. This only works for fully connected A
@@ -44,17 +62,22 @@ function AgAg_attraction(X::AbstractVecOrMat{T}, A::BitMatrix; φ=x -> exp(-x)) 
     return force
 end
 
-"""
-    AgAg_attraction(omp::OpinionModelProblem, φ = x -> exp(-x))
-
-Calculate the force of attraction on agents exerted by other agents they are connected to,
-with φ the scaling function.
-"""
 function AgAg_attraction(omp::OpinionModelProblem{T}; φ=x -> exp(-x)) where {T}
-    X, A = omp.X, omp.AgAgNet
-    return AgAg_attraction(X, A)
+    return AgAg_attraction(omp.X, omp.A; φ=φ)
 end
 
+@doc raw"""
+    MedAg_attraction(X, M, B)
+
+Computes the force exerted on an agent by the media outlet it follows as determined by
+``B``. Output has the same shape as in [`AgAg_attraction`](@ref).
+
+# Mathematical definition
+Mathematically, the function computes,
+```math
+\sum_{m=1}^{M} B_{im} \, (y_m - x_i)
+```
+"""
 function MedAg_attraction(X::T, M::T, B::BitMatrix) where {T<:AbstractVecOrMat}
     force = similar(X)
     # FIXME: Can be written even more compactly
@@ -73,15 +96,22 @@ function MedAg_attraction(X::T, M::T, B::BitMatrix) where {T<:AbstractVecOrMat}
     return force
 end
 
-"""
-    MedAg_attraction(omp::OpinionModelProblem)
-
-Calculates the Media-Agent attraction force for all agents.
-"""
 function MedAg_attraction(omp::OpinionModelProblem)
-    return MedAg_attraction(omp.X, omp.M, omp.AgMedNet)
+    return MedAg_attraction(omp.X, omp.Y, omp.B)
 end
 
+@doc raw"""
+    InfAg_attraction(X, Z, C)
+
+Computes the force exerted on each agent by the influencer they follow, determined by
+``C``. Output has the same shape as in [`AgAg_attraction`](@ref).
+
+# Mathematical definition
+Mathematically, the function computes,
+```math
+\sum_{\ell=1}^{L} C_{i\ell} \, (z_m - x_i)
+```
+"""
 function InfAg_attraction(X::T, Z::T, C::BitMatrix) where {T<:AbstractVecOrMat}
     force = similar(X)
 
@@ -100,11 +130,6 @@ function InfAg_attraction(X::T, Z::T, C::BitMatrix) where {T<:AbstractVecOrMat}
     return force
 end
 
-"""
-    InfAg_attraction(omp::OpinionModelProblem)
-
-Calculates the Influencer-Agent attraction force for all agents.
-"""
 function InfAg_attraction(omp::OpinionModelProblem)
     X, Z, C = omp.X, omp.I, omp.AgInfNet
     return InfAg_attraction(X, Z, C)
@@ -144,11 +169,17 @@ function follower_average(X::AbstractVecOrMat, Network::BitMatrix)
     return mass_centers
 end
 
-"""
+@doc raw"""
     agent_drift(X, M, I, A, B, C, a, b, c)
 
 Calculates the drift force acting on agents, which is the weighted sum of the Agent-Agent,
 Media-Agent and Influencer-Agent forces of attraction.
+
+# Mathematical definition
+The function corresponds to the drift function ``F_i`` of the SDE
+```math
+dx_i(t) = F_i (x, y, z, t) \, dt + \sigma \, dW_i (t).
+```
 """
 function agent_drift(X::T, Y::T, Z::T, A::Bm, B::Bm, C::Bm,
                      a, b, c) where {T<:AbstractVecOrMat,Bm<:BitMatrix}
@@ -157,14 +188,20 @@ function agent_drift(X::T, Y::T, Z::T, A::Bm, B::Bm, C::Bm,
            c * InfAg_attraction(X, Z, C)
 end
 
-"""
-    media_drift(X, Y, B, Γ; f = identity)
+@doc raw"""
+    media_drift(X, Y, B, Γ)
 
-Calculates the drift force acting on media outlets, as described in eq. (4).
+Calculates the drift force acting on media outlets. In other words, the drift function of
+the following SDE:
+```math
+\Gamma dy_m(t) = (\widetilde{x_m}(t) - y_m (t)) \, dt + \widetilde{\sigma} \, d
+\widetilde{W}_m (t),
+```
+where ``\widetilde{x_m}`` is the average opinion of the media outlet ``m`` followers.
 """
 function media_drift(X::T, Y::T, B::Bm, Γ;
                      f=identity) where {T<:AbstractVecOrMat,Bm<:BitMatrix}
-    f_full(x) = ismissing(x) ? 0 : f(x)
+    f_full(x) = ismissing(x) ? 0 : f(x) # FIXME: Use missings.jl
     force = similar(Y)
     x_tilde = follower_average(X, B)
     force = f_full.(x_tilde .- Y)
@@ -172,14 +209,20 @@ function media_drift(X::T, Y::T, B::Bm, Γ;
     return (1 / Γ) .* force
 end
 
-"""
-    influencer_drift(X, Z, C, γ, g = identity)
+@doc raw"""
+    influencer_drift(X, Z, C, γ)
 
-Calculates the drift force action on influencers as described in eq. (5).
+Calculates the drift force action on influencers, i.e. the drift function of the SDE:
+```math
+\gamma dz_{\ell} (t) = (\widehat{x_{\ell}} (t) - z_{\ell}(t)) \, dt + \widehat{\sigma} d
+\widetilde{W_\ell},
+```
+where ``\widehat{x_{\ell}}`` is the average opinion of the ``\ell`` influencer's
+followers.
 """
 function influencer_drift(X::T, Z::T, C::Bm, γ;
                           g=identity) where {T<:AbstractVecOrMat,Bm<:BitMatrix}
-    g_full(x) = ismissing(x) ? 0 : g(x)
+    g_full(x) = ismissing(x) ? 0 : g(x) # FIXME: Use missings.jl
     force = similar(Z)
     x_hat = follower_average(X, C)
     force = g_full.(x_hat .- Z)
@@ -187,12 +230,12 @@ function influencer_drift(X::T, Z::T, C::Bm, γ;
     return (1 / γ) .* force
 end
 
-"""
+@doc raw"""
     followership_ratings(B, C)
 
-Calculates the rate of individuals that follow both the `m`-th media outlet and the `l`-th
-influencer. The `m,l`-th entry of the output corresponds to the proportion of agents that
-follows `m` and `l`.
+Calculates the rate of individuals that follow both the ``m``-th media outlet and the
+``\ell``-th influencer. The `m,l`-th entry of the output corresponds to the proportion of
+agents that follows ``m`` and ``l``.
 
 # Arguments:
 - `B::BitMatrix`: Adjacency matrix of the agents to the media outlets
@@ -211,12 +254,16 @@ function followership_ratings(B::BitMatrix, C::BitMatrix)
     return R
 end
 
-"""
+@doc raw"""
     influencer_switch_rates(X, Z, B, C, η; ψ = x -> exp(-x), r = relu)
 
 Returns an n × L matrix where the `j,l`-th entry contains the rate λ of the Poisson point
 process modeling how agent `j` switches influencers to `l`. Note that this is not the
-same as ``Λ_{m}^{→l}``.
+same as ``Λ_{m}^{→l}``, defined as:
+```math
+\Lambda_{m}^{\to \ell} (x, t) = \eta \, \psi(\| z_{\ell} - x \|) \, r \left( 
+\frac{n_{m,\ell}(t)}{\sum_{m^\prime = 1}^{M} n_{m^\prime, \ell} (t) } \right).
+```
 """
 function influencer_switch_rates(X::T, Z::T, B::Bm, C::Bm, η::Float64; ψ=x -> exp(-x),
                                  r=relu) where {T<:AbstractVecOrMat,Bm<:BitMatrix}
@@ -249,12 +296,9 @@ end
     switch_influencer(C, X, Z, B, η, dt)
 
 Simulates the Poisson point process that determines how agents change influencers based on
-the calculated switching rates. The keyword argument `method` determines how the process
-is simulated. If `method` == :other, the process is simulated with the rates calculated
-via [`influencer_switch_rates`], and if `method` == :luzie, the process is simulated with
-the legacy approach that was used in the paper preprint.
+the calculated switching rates.
 
-See also [`influencer_switch_rates`]
+See also [`influencer_switch_rates`](@ref)
 """
 function switch_influencer(C::Bm, X::T, Z::T, rates::U,
                            dt) where {Bm<:BitMatrix,T,U<:AbstractVecOrMat}
