@@ -76,7 +76,7 @@ Represents a `D`-dimensional opinion dynamics problem with specific `ModelParams
 
 ## Fields
 - `p`: Instance of `ModelParams` defining problem-wide parameters.
-- `domain`: `D`-tuples representing the bounds of each dimenion of the opinion space.
+- `domain`: `D` 2-tuples representing the bounds of each dimenion of the opinion space.
 - `X`: Matrix of shape (`p.n` × `D`) containing the coordinates of agents in the model.
     Agents are represented as rows.
 - `Y`: Matrix storing the coordinates of media agents of shape similar to `X`
@@ -96,7 +96,7 @@ initial data at hand:
     uniformly along the opinion space, setting a seed manually will affect the initial
     positions. This is intended to be the main constructor
 
-    !!! warning
+!!! warning
     Specifying `domain` with mixed-type tuples will fail (and with a cryptic error).
     Instead of passing (-2.0, 2), pass (-2.0, 2.0). See examples below.
 
@@ -185,7 +185,6 @@ function OpinionModelProblem(dom::Vararg{Tuple{T,T},D}; p=ModelParams(),
     return OpinionModelProblem{T,D}(X, I; p=p, dom=dom, AgAgNetF=AgAgNetF)
 end
 
-Z₀
 function OpinionModelProblem{T,D}(X₀::AbstractArray{T},
                                   Z₀::AbstractArray{T};
                                   p=ModelParams(; L=size(Z₀, 1), n=size(X₀, 1)),
@@ -220,14 +219,23 @@ end
 
 # Supporting structs for the SciML DiffEq based solver
 
-"""
-$(TYPEDEF)
-"""
 abstract type AbstractSolver end
 
+"""
+Defines a Type that parametrizes [`ModelSimulation`](@ref) and signifies the simulation
+was computed the the "bespoke" (i.e. hand-implemented, modified) Euler--Maruyama. It has a
+single property: the timesteps used in the E-M integration procedure.
+"""
 struct BespokeSolver <: AbstractSolver
     tstops::AbstractVector{Float64}
 end
+
+"""
+Defines a Type that parametrizes [`ModelSimulation`](@ref) and signifies the opinion
+problem was simulated by integrating the SDEs defining the model via
+DifferentialEquations.jl. It has a single property: `sol`, the solution of the SDE as a
+DifferentialEquations.jl `SciMLBase.RODESolution`.
+"""
 struct DiffEqSolver <: AbstractSolver
     sol::SciMLBase.RODESolution
     # abstol::AbstractFloat # tolerance value of the diff.eq. solver. Used to compare
