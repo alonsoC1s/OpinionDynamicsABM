@@ -24,7 +24,8 @@ export _boolean_combinator,
        influencer_switch_rates,
        _ag_ag_echo_chamber,
        _media_network,
-       plot_snapshot
+       plot_snapshot,
+       snapshots
 
 include("utils.jl")
 include("opinion_model_problem.jl")

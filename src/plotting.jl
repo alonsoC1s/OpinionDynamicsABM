@@ -23,7 +23,7 @@ function plot_frame(X, Y, Z, B, C, t; title="Simulation",
              markerstrokecolor=:white,
              markerstrokewidth=3,
              c=colors,
-             title="$(title) at step $(t)",)
+             title="Step $(t)",)
 
     return p
 end
@@ -34,16 +34,23 @@ end
 Plots a single point in time of the simulation `oms` as a scatterplot showing agents and
 influencers coded by color.
 """
-function frame(oms::ModelSimulation, t; title="Simulation")
+function frame(oms::ModelSimulation, t; title="Simulation", B::AbstractMatrix = nothing)
     colors = [:red, :green, :blue, :black]
     shapes = [:ltriangle, :rtriangle]
     X, _, Z, C, _ = oms
 
     c_idx = findfirst.(eachrow(C[:, :, t]))
 
+    markers = if ~isnothing(B)
+        s_idx = findfirst.(eachrow(B))
+        shapes[s_idx]
+    else
+        nothing
+    end
+
     p = scatter(eachcol(X[:, :, t])...;
                 c=colors[c_idx],
-                # m=shapes[s_idx],
+                m=markers,
                 legend=:none,
                 xlims=oms.dom[1],
                 ylims=oms.dom[2])
@@ -55,7 +62,7 @@ function frame(oms::ModelSimulation, t; title="Simulation")
              markerstrokecolor=:white,
              markerstrokewidth=3,
              c=colors,
-             title="$(title) at step $(t)")
+             title="Step $(t)")
 
     return p
 end
@@ -109,14 +116,14 @@ function evolve_compare(s1::A, s2::B, filename;
     return gif(anim, filename; fps=15)
 end
 
-function snapshots(oms::ModelSimulation; title = "Simulation")
+function snapshots(oms::ModelSimulation; title = "Simulation", B::AbstractMatrix = nothing)
     start = 1
     finish = oms.nsteps
     middle = round(Int, (finish - start) / 2)
 
-    frame_1st = frame(oms, start)
-    frame_mid = frame(oms, middle)
-    frame_end = frame(oms, finish)
+    frame_1st = frame(oms, start; B)
+    frame_mid = frame(oms, middle; B)
+    frame_end = frame(oms, finish; B)
 
     l = @layout [a b c]
 
