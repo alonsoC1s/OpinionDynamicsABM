@@ -1,71 +1,46 @@
-# FIXME: Parametrize on dimension of the problem. If dim != 2, none of these should work
-
-function plot_frame(X, Y, Z, B, C, t; title="Simulation",
-                    mins=mapslices(minimum, X; dims=1),
-                    maxs=mapslices(maximum, X; dims=1))
-    colors = [:red, :green, :blue, :black]
-    shapes = [:ltriangle, :rtriangle]
-
-    c_idx = findfirst.(eachrow(C[:, :, t]))
-    # s_idx = findfirst.(eachrow(B))
-
-    p = scatter(eachcol(X[:, :, t])...;
-                c=colors[c_idx],
-                # m=shapes[s_idx],
-                legend=:none,
-                xlims=(mins[1], maxs[1]),
-                ylims=(mins[2], maxs[2]))
-
-    scatter!(p,
-             eachcol(Z[:, :, t])...;
-             m=:hexagon,
-             ms=6,
-             markerstrokecolor=:white,
-             markerstrokewidth=3,
-             c=colors,
-             title="Step $(t)",)
-
-    return p
-end
-
 """
     frame(oms::ModelSimulation, t; title = "Simulation")
 
 Plots a single point in time of the simulation `oms` as a scatterplot showing agents and
 influencers coded by color.
 """
-function frame(oms::ModelSimulation, t; title="Simulation", B::AbstractMatrix = nothing)
-    colors = [:red, :green, :blue, :black]
+function frame(oms::ModelSimulation, t; title = "Simulation $(t)",
+               B::Union{AbstractMatrix,Nothing}=nothing,
+               colors::AbstractVector=[:red, :green, :blue, :yellow])
     shapes = [:ltriangle, :rtriangle]
+    X, _, Z, C, _ = oms
+
+    c_idx = findfirst.(eachrow(C[:, :, t]))
+
+    markers, markersize, infl_marker = if ~isnothing(B)
+        s_idx = findfirst.(eachrow(B))
+        (shapes[s_idx], 5, :circle)
+    else
+        (:none, 4, :star5)
+    end
+
+    # Plot agents
+    p = scatter(eachcol(X[:, :, t])...;
                 c=colors[c_idx],
                 m=markers,
+                ms=markersize,
                 legend=:none,
                 xlims=oms.dom[1],
-                ylims=oms.dom[2])
+                ylims=oms.dom[2],)
 
+    # Plot influencers
     scatter!(p,
              eachcol(Z[:, :, t])...;
-             m=:hexagon,
+             m=infl_marker,
              ms=6,
              markerstrokecolor=:white,
              markerstrokewidth=3,
              c=colors,
-             title="Step $(t)")
+             title=title,
+             aspect_ratio=:equal)
 
     return p
 end
-
-# function plot_evolution(X, Y, Z, B, C, filename; title="")
-#     T = size(X, 3)
-#     colwise_mins = mapslices(minimum, X; dims=1)
-#     colwise_maxs = mapslices(maximum, X; dims=1)
-
-#     anim = @animate for t in 1:T
-#         plot_frame(X, Y, Z, B, C, t; title=title, mins=colwise_mins, maxs=colwise_maxs)
-#     end
-
-#     return gif(anim, filename; fps=15)
-# end
 
 """
     evolution(oms::ModelSimulation, filename; [title])
@@ -73,9 +48,9 @@ end
 Plots the entire simulation `oms` as a gif where each frame corresponds to a timestep
 taken by the integration algorithm.
 """
-function evolution(oms::ModelSimulation, filename; title="")
+function evolution(oms::ModelSimulation, filename; frame_title="Step ")
     anim = @animate for t in 1:length(oms)
-        frame(oms, t; title=title)
+        frame(oms, t; title=frame_title)
     end
 
     return gif(anim, filename; fps=15)
@@ -104,7 +79,8 @@ function evolve_compare(s1::A, s2::B, filename;
     return gif(anim, filename; fps=15)
 end
 
-function snapshots(oms::ModelSimulation; title = "Simulation", B::AbstractMatrix = nothing)
+function snapshots(oms::ModelSimulation; title="Simulation",
+                   B::Union{AbstractMatrix,Nothing}=nothing)
     start = 1
     finish = oms.nsteps
     middle = round(Int, (finish - start) / 2)
@@ -113,7 +89,5 @@ function snapshots(oms::ModelSimulation; title = "Simulation", B::AbstractMatrix
     frame_mid = frame(oms, middle; B)
     frame_end = frame(oms, finish; B)
 
-    l = @layout [a b c]
-
-    return plot(frame_1st, frame_mid, frame_end; layout=l, plot_title=title)
+    return plot(frame_1st, frame_mid, frame_end; layout=(1, 3), plot_title=title)
 end
