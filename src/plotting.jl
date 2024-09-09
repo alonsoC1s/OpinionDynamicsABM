@@ -37,18 +37,6 @@ influencers coded by color.
 function frame(oms::ModelSimulation, t; title="Simulation", B::AbstractMatrix = nothing)
     colors = [:red, :green, :blue, :black]
     shapes = [:ltriangle, :rtriangle]
-    X, _, Z, C, _ = oms
-
-    c_idx = findfirst.(eachrow(C[:, :, t]))
-
-    markers = if ~isnothing(B)
-        s_idx = findfirst.(eachrow(B))
-        shapes[s_idx]
-    else
-        nothing
-    end
-
-    p = scatter(eachcol(X[:, :, t])...;
                 c=colors[c_idx],
                 m=markers,
                 legend=:none,
@@ -129,53 +117,3 @@ function snapshots(oms::ModelSimulation; title = "Simulation", B::AbstractMatrix
 
     return plot(frame_1st, frame_mid, frame_end; layout=l, plot_title=title)
 end
-
-# function plot_snapshot(X, Y, Z, B, C, filename; title="")
-#     T = size(X, 3)
-#     colwise_mins = mapslices(minimum, X; dims=1)
-#     colwise_maxs = mapslices(maximum, X; dims=1)
-
-#     # First, last and middle indices
-#     start = firstindex(X, 3)
-#     finish = lastindex(X, 3)
-#     middle = round(Int, (finish - start) / 2)
-
-#     frame_1st = plot_frame(X, Y, Z, B, C, start; mins=colwise_mins,
-#                            maxs=colwise_maxs)
-#     frame_mid = plot_frame(X, Y, Z, B, C, middle; mins=colwise_mins,
-#                            maxs=colwise_maxs)
-#     frame_end = plot_frame(X, Y, Z, B, C, finish; mins=colwise_mins,
-#                            maxs=colwise_maxs)
-
-#     l = @layout [a b c]
-#     plot(frame_1st, frame_mid, frame_end; layout=l, size=(1000, 618), plot_title=title)
-
-#     return savefig(filename)
-# end
-
-# function plot_lambda_radius(X, Y, Z, B, C, t)
-#     rates = influencer_switch_rates(X[:, :, t], Z[:, :, t], B, C[:, :, t] |> BitMatrix,
-#                                     15.0)
-
-#     subplots = [plot() for _ in 1:size(Z, 1)]
-
-#     for (i, p) in pairs(subplots)
-#         scatter!(p, eachcol(X[:, :, t])...; zcolor=rates[:, i], title="Influencer $(i)")
-#         scatter!(p, [Z[i, 1, t]], [Z[i, 2, t]]; c=:green, m=:x)
-#     end
-
-#     return plot(subplots...; layout=(2, 2), legend=false)
-# end
-
-# function plot_switch_propensity(X, Y, Z, B, C, t)
-#     rates = influencer_switch_rates(X[:, :, t], Z[:, :, t], B, C[:, :, t] |> BitMatrix,
-#                                     15.0)
-
-#     propensity = sum(rates; dims=2)
-
-#     return scatter(eachcol(X[:, :, t])...;
-#                    zcolor=propensity,
-#                    title="Agent by switch propensity",
-#                    legend=:none,
-#                    colorbar=true,)
-# end
