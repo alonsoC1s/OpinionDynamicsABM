@@ -17,11 +17,11 @@ Create a new Opinion model problem with determinisitic params.
 
 ```julia
 using OpinionDynamicsABM
-deterministic_params = ModelParams(; σ=0.0, σ̂=0, σ̃=0)
+deterministic_params = ModelParams(; a = 1, b = 0, c = 4, σ=0.0, σ̂=0, σ̃=0, γ=1, Γ=1)
 problem = OpinionModelProblem((-2.0, 2.0), (-2.0, 2.0), p = deterministic_params)
 
-sol_em = simulate!(copy(problem))
-sol = simulate!(copy(problem), (0.0, 2.0))
+sol_em = simulate!(problem)
+sol = simulate!(problem, (0.0, 2.0))
 
 # Comparing the 2 solutions
 evolve_compare(sol, sol_em, "evolution.gif")

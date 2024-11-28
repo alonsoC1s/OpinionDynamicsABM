@@ -4,7 +4,7 @@
 Plots a single point in time of the simulation `oms` as a scatterplot showing agents and
 influencers coded by color.
 """
-function frame(oms::ModelSimulation, t; title = "Simulation $(t)",
+function frame(oms::ModelSimulation, t; title="Simulation $(t)",
                B::Union{AbstractMatrix,Nothing}=nothing,
                colors::AbstractVector=[:red, :green, :blue, :yellow])
     shapes = [:ltriangle, :rtriangle]

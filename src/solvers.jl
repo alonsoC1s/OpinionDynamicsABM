@@ -138,11 +138,12 @@ save_C = function (u, t, integrator)
     return integrator.p.C
 end
 
+
 """
     build_sdeproblem(omp::OpinionModelProblem, tspan)
 
 Returns an `SDEProblem` suitable to be used with the SciML DifferentialEquations.jl
-ecosystem. 
+ecosystem.
 """
 function build_sdeproblem(omp::OpinionModelProblem{T,D}, tspan::Tuple{T,T}) where {T,D}
     mp = omp.p
@@ -173,7 +174,9 @@ function simulate!(omp::OpinionModelProblem{T,D}, tspan::Tuple{T,T}; dt::T=0.01,
     C_cache = SavedValues(Float64, BitMatrix)
     saving_callback = SavingCallback(save_C, C_cache; saveat=dt, save_end=false,
                                      save_start=true)
-    cbs = CallbackSet(influencer_switching_callback, saving_callback)
+    influencer_switching_timed_cb = PeriodicCallback(influencer_switch_affect!, dt)
+    # cbs = CallbackSet(influencer_switching_callback, saving_callback)
+    cbs = CallbackSet(influencer_switching_timed_cb, saving_callback)
 
     diffeq_prob = build_sdeproblem(omp, tspan)
     diffeq_sol = solve(diffeq_prob, SRIW1(); callback=cbs, alg_hints=:additive,

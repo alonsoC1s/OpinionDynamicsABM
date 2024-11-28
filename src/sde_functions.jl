@@ -7,7 +7,7 @@
 
 Computes the force collectively exerted on agents by other agents they are connected to.
 Returns the results as a matrix where the ``i,j-th`` entry represents the commulative
-force felt by agent ``i`` along dimension ``j``. 
+force felt by agent ``i`` along dimension ``j``.
 
 # Mathematical definition
 Mathematically, the function computes,
@@ -261,7 +261,7 @@ Returns an n × L matrix where the `j,l`-th entry contains the rate λ of the Po
 process modeling how agent `j` switches influencers to `l`. Note that this is not the
 same as ``Λ_{m}^{→l}``, defined as:
 ```math
-\Lambda_{m}^{\to \ell} (x, t) = \eta \, \psi(\| z_{\ell} - x \|) \, r \left( 
+\Lambda_{m}^{\to \ell} (x, t) = \eta \, \psi(\| z_{\ell} - x \|) \, r \left(
 \frac{n_{m,\ell}(t)}{\sum_{m^\prime = 1}^{M} n_{m^\prime, \ell} (t) } \right).
 ```
 """
@@ -296,7 +296,7 @@ end
     switch_influencer(C, X, Z, B, η, dt)
 
 Simulates the Poisson point process that determines how agents change influencers based on
-the calculated switching rates.
+the calculated switching rates via a Tau-Leaping-like approach.
 
 See also [`influencer_switch_rates`](@ref)
 """

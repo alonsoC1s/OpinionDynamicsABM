@@ -15,16 +15,13 @@ export _boolean_combinator,
        InfAg_attraction,
        MedAg_attraction,
        simulate!,
-       plot_evolution,
        evolution,
-       plot_frame,
        frame,
        evolve_compare,
        time_rate_tensor,
        influencer_switch_rates,
        _ag_ag_echo_chamber,
        _media_network,
-       plot_snapshot,
        snapshots
 
 include("utils.jl")
@@ -32,7 +29,5 @@ include("opinion_model_problem.jl")
 include("sde_functions.jl")
 include("solvers.jl")
 include("plotting.jl")
-
-theme(:ggplot2)
 
 end
