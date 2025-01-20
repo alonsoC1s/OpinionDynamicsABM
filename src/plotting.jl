@@ -4,7 +4,7 @@
 Plots a single point in time of the simulation `oms` as a scatterplot showing agents and
 influencers coded by color.
 """
-function frame(oms::ModelSimulation, t; title="Simulation $(t)",
+function frame(oms::ModelSimulation, t; title="Step $(t)",
                B::Union{AbstractMatrix,Nothing}=nothing,
                colors::AbstractVector=[:red, :green, :blue, :yellow])
     shapes = [:ltriangle, :rtriangle]
@@ -50,7 +50,7 @@ taken by the integration algorithm.
 """
 function evolution(oms::ModelSimulation, filename; frame_title="Step ")
     anim = @animate for t in 1:length(oms)
-        frame(oms, t; title=frame_title)
+        frame(oms, t)
     end
 
     return gif(anim, filename; fps=15)

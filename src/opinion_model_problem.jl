@@ -182,11 +182,12 @@ function OpinionModelProblem(dom::Vararg{Tuple{T,T},D}; p=ModelParams(),
         M = vec(M)
     end
 
-    return OpinionModelProblem{T,D}(X, I; p=p, dom=dom, AgAgNetF=AgAgNetF)
+    return OpinionModelProblem{T,D}(X, I, C; p=p, dom=dom, AgAgNetF=AgAgNetF)
 end
 
 function OpinionModelProblem{T,D}(X₀::AbstractArray{T},
-                                  Z₀::AbstractArray{T};
+                                  Z₀::AbstractArray{T},
+                                  C₀::BitMatrix;
                                   p=ModelParams(; L=size(Z₀, 1), n=size(X₀, 1)),
                                   dom::NTuple{D,Tuple{T,T}}=_array_bounds(X₀),
                                   AgAgNetF::Function=I -> trues(p.n, p.n)) where {D,
@@ -201,12 +202,12 @@ function OpinionModelProblem{T,D}(X₀::AbstractArray{T},
 
     # Create Agent-Influence network (n × L) by grouping individuals into quadrants
     # i,j-th entry is true if i-th agent follows the j-th influencer
-    C = _orthantize(X₀) |> BitMatrix
+    # C = _orthantize(X₀) |> BitMatrix
 
     # Defining the Agent-Agent interaction matrix as a function of the Agent-Influencer
     # matrix. In the default case, the matrix represents a fully connected network. In other
     # cases, the adjacency is computed with the adjacency to influencers.
-    A = AgAgNetF(C)
+    A = AgAgNetF(C₀)
 
     # Assign agents to media outlet randomly s.t. every agent is connected to 1 and only 1 media.
     B = _media_network(p.n, p.M)
@@ -214,7 +215,7 @@ function OpinionModelProblem{T,D}(X₀::AbstractArray{T},
     # We consider just 2 media outlets at the "corners"
     Y = vcat(fill(-one(T), (1, D)), fill(one(T), (1, D)))
 
-    return OpinionModelProblem{T,D}(p, dom, X₀, Y, Z₀, A, B, C)
+    return OpinionModelProblem{T,D}(p, dom, X₀, Y, Z₀, A, B, C₀)
 end
 
 # Supporting structs for the SciML DiffEq based solver
