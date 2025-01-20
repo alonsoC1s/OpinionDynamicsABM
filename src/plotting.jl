@@ -80,14 +80,15 @@ function evolve_compare(s1::A, s2::B, filename;
 end
 
 function snapshots(oms::ModelSimulation; title="Simulation",
-                   B::Union{AbstractMatrix,Nothing}=nothing)
+                   B::Union{AbstractMatrix,Nothing}=nothing,
+                   colors::AbstractVector=[:red, :green, :blue, :yellow])
     start = 1
     finish = oms.nsteps
     middle = round(Int, (finish - start) / 2)
 
-    frame_1st = frame(oms, start; B)
-    frame_mid = frame(oms, middle; B)
-    frame_end = frame(oms, finish; B)
+    frame_1st = frame(oms, start; B, colors)
+    frame_mid = frame(oms, middle; B, colors)
+    frame_end = frame(oms, finish; B, colors)
 
     return plot(frame_1st, frame_mid, frame_end; layout=(1, 3), plot_title=title)
 end
