@@ -33,8 +33,8 @@ function frame(oms::ModelSimulation, t; title="Step $(t)",
              eachcol(Z[:, :, t])...;
              m=infl_marker,
              ms=6,
-             markerstrokecolor=:white,
-             markerstrokewidth=3,
+             markerstrokecolor=:black,
+             markerstrokewidth=2,
              c=colors,
              title=title,
              aspect_ratio=:equal)
