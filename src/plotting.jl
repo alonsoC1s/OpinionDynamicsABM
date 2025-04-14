@@ -36,6 +36,7 @@ function frame(oms::ModelSimulation, t; title="Step $(t)",
              markerstrokecolor=:black,
              markerstrokewidth=2,
              c=colors,
+             # c = :black,
              title=title,
              aspect_ratio=:equal)
 
@@ -50,7 +51,7 @@ taken by the integration algorithm.
 """
 function evolution(oms::ModelSimulation, filename; frame_title="Step ")
     anim = @animate for t in 1:length(oms)
-        frame(oms, t)
+        frame(oms, t; title = "")
     end
 
     return gif(anim, filename; fps=15)
