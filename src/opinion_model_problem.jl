@@ -104,7 +104,7 @@ initial data at hand:
     problem by providing the initial positions of agents and influencers. The model
     parameters and domain of opinion space can optionally be given manually. If ommited,
     the `ModelParams` are the default parameters (see [`ModelParams`](@ref)) and the
-    `domain` is inferred as the minima and maxima of `X₀ ∪ Z₀`.  
+    `domain` is inferred as the minima and maxima of `X₀ ∪ Z₀`.
 
 -  `OpinionModelProblem(p::ModelParams, domain::NTuple{D, Tuple{T, T}}, X, Y, Z, A, B, C)`:
     creates an opinion problem by explicitly filling every field. The constructor is not
@@ -129,6 +129,15 @@ struct OpinionModelProblem{T<:AbstractFloat,D}
     A::BitMatrix # Agent-Agent adjacency matrix
     B::BitMatrix # Agent-Media adjacency matrix
     C::BitMatrix # Agent-Influencer adjaceny matrix
+
+    # FIXME: Implement internal constructor to enforce invariants like symmetry
+    function OpinionModelProblem{T,D}(p, domain, X, Y, Z, A, B, C) where {T,D}
+        any([A[i, i] for i in axes(A, 1)]) &&
+            throw(ArgumentError("Agents have self-connections"))
+
+        issymmetric(A) || throw(ArgumentError("Matrix A is not symmetric"))
+        return new{T,D}(p, domain, X, Y, Z, A, B, C)
+    end
 end
 
 function Base.show(io::IO, omp::OpinionModelProblem{T,D}) where {T,D}
