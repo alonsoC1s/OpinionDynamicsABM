@@ -27,9 +27,12 @@ function AgAg_attraction(X::AbstractVecOrMat{T}, A::BitMatrix; φ=x -> exp(-x)) 
     # FIXME: These can be pre-allocated all the way up in the integrator. Perhaps even
     # reusing the same array over and over.
     # Pre allocating outputs
-    force = similar(X)
-    Dijd = similar(X, I, J, D)
-    Wij = similar(X, I, J)
+    # force = similar(X)
+    force = zero(X)
+    # Dijd = similar(X, I, J, D)
+    Dijd = zeros(I, J, D)
+    # Wij = similar(X, I, J)
+    Wij = zeros(I, J)
 
     for i in axes(force, 1) # Iterate over agents
         agent = view(X, i, :)
@@ -49,16 +52,33 @@ function AgAg_attraction(X::AbstractVecOrMat{T}, A::BitMatrix; φ=x -> exp(-x)) 
 
             # Filling Wij in the same loop
             w = φ(norm(Dij))
+            if w < 1e-8 || isnan(w)
+                @show i j Dij agent neighbor
+            end
+            @assert w > 1e-8
             view(Wij, i, j) .= w
             normalization_constant += w
         end
 
+        # @show normalization_constant
+        # @show i
+
+        if !(normalization_constant .> 1e-5)
+            @show normalization_constant
+            @show neighbors
+            @show Wij[i, :]
+        end
+        @assert normalization_constant .> 1e-5
         # row-normalize W to get 1/sum(W[i, j] for j)
         view(Wij, i, :) .= view(Wij, i, :) ./ normalization_constant
     end
 
     # Calculate the attraction force per dimension with Einstein sum notation
     force .= ein"ijd,ij -> id"(Dijd, Wij)
+    if any(isnan.(force))
+        @show force
+    end
+    @assert !any(isnan.(force))
     return force
 end
 
@@ -272,6 +292,7 @@ function influencer_switch_rates(X::T, Z::T, B::Bm, C::Bm, η::Float64; ψ=x -> 
     rate_m_l = followership_ratings(B, C)
     # attractiveness is the total proportion of followers per influencer
     # Divide each col of rates over sum(n_(m, l) for m = 1:M)
+    @assert all(sum(rate_m_l; dims=1) .> 1e-5)
     struct_similarity = rate_m_l ./ sum(rate_m_l; dims=1)
 
     # Computing distances of each individual to the influencers
