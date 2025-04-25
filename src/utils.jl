@@ -5,7 +5,7 @@
 # If z >= 0     If z < 0
 #      |            |
 #   5 | 1         6 | 2
-# ---------     --------- 
+# ---------     ---------
 #   7 | 3         8 | 4
 #     |             |
 """
@@ -73,8 +73,8 @@ coordinates of agents on opinion space. Each column corresponds to a dimension o
 space, while each row corresponds to an agent.
 """
 function _array_bounds(X::AbstractMatrix)
-    colwise_mins = reduce(minimum, X; dims = 1)
-    colwise_maxs = reduce(maximum, X; dims = 1)
+    colwise_mins = reduce(minimum, X; dims=1)
+    colwise_maxs = reduce(maximum, X; dims=1)
 
     return Tuple(zip(colwise_mins, colwise_maxs))
 end
@@ -103,6 +103,10 @@ function _ag_ag_echo_chamber(AgInfNet::BitArray)
         AgAgNet = AgAgNet .|| clicque_subnet
         # Reseting the current influencer's subnetwork for the next iteration
         fill!(clicque_subnet, false)
+    end
+
+    for i in axes(AgAgNet, 1)
+        AgAgNet[i, i] = false
     end
 
     return AgAgNet
