@@ -1,11 +1,8 @@
 module OpinionDynamicsABM
 
-# Write your package code here.
-# Imports
-using LinearAlgebra, Plots, Random, Distributions, Statistics, OMEinsum,
-      DifferentialEquations, DiffEqCallbacks
+using LinearAlgebra, Plots, Random, Distributions, Statistics, OMEinsum
+using SciMLBase, DiffEqCallbacks, StochasticDiffEq
 
-# Exports...
 export _boolean_combinator,
        _orthantize,
        _place_influencers,
