@@ -168,8 +168,8 @@ Base.iterate(omp::OpinionModelProblem, ::Val{:done}) = nothing
 
 function OpinionModelProblem(dom::Vararg{Tuple{T,T},D}; p=ModelParams(),
                              seed=MersenneTwister(),
-                             AgAgNetF::Function=I -> trues(p.n, p.n)) where {D,
-                                                                             T<:AbstractFloat}
+                             AgAgNetF::Function=I -> fullyconnected_network(p.n)) where {D,
+                                                                                         T<:AbstractFloat}
     # We divide the domain into orthants, and each orthant has 1 influencer
     p.L != 2^D && throw(ArgumentError("Number of influencers has to be 2^dim"))
 
@@ -199,8 +199,8 @@ function OpinionModelProblem{T,D}(X₀::AbstractArray{T},
                                   C₀::BitMatrix;
                                   p=ModelParams(; L=size(Z₀, 1), n=size(X₀, 1)),
                                   dom::NTuple{D,Tuple{T,T}}=_array_bounds(X₀),
-                                  AgAgNetF::Function=I -> trues(p.n, p.n)) where {D,
-                                                                                  T<:AbstractFloat}
+                                  AgAgNetF::Function=I -> fullyconnected_network(p.n)) where {D,
+                                                                                              T<:AbstractFloat}
     p.L != size(Z₀, 1) &&
         throw(ArgumentError("`influencers_init` defined more influencers than contemplated" *
                             "in the parameters $(p)"))
