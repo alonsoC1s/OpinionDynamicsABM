@@ -130,7 +130,6 @@ struct OpinionModelProblem{T<:AbstractFloat,D}
     B::BitMatrix # Agent-Media adjacency matrix
     C::BitMatrix # Agent-Influencer adjaceny matrix
 
-    # FIXME: Implement internal constructor to enforce invariants like symmetry
     function OpinionModelProblem{T,D}(p, domain, X, Y, Z, A, B, C) where {T,D}
         any([A[i, i] for i in axes(A, 1)]) &&
             throw(ArgumentError("Agents have self-connections"))
@@ -158,14 +157,6 @@ Base.iterate(omp::OpinionModelProblem, ::Val{:B}) = (omp.B, Val(:C))
 Base.iterate(omp::OpinionModelProblem, ::Val{:C}) = (omp.C, Val(:done))
 Base.iterate(omp::OpinionModelProblem, ::Val{:done}) = nothing
 
-# function OpinionModelProblem(dom::Vararg{Tuple{Real,Real},D}; p=ModelParams(),
-#                              seed=MersenneTwister(),
-#                              AgAgNetF::Function=I -> trues(p.n, p.n),) where {D<:Real}
-#     @info "Promoting elements of domain tuples"
-#     throw(ErrorException("Mixed-type tuples are not yet supported"))
-#     # return OpinionModelProblem(promote(dom...), seed, AgAgNetF)
-# end
-
 function OpinionModelProblem(dom::Vararg{Tuple{T,T},D}; p=ModelParams(),
                              seed=MersenneTwister(),
                              AgAgNetF::Function=I -> fullyconnected_network(p.n)) where {D,
@@ -188,7 +179,6 @@ function OpinionModelProblem(dom::Vararg{Tuple{T,T},D}; p=ModelParams(),
 
     if D == 1
         X = vec(X)
-        M = vec(M)
     end
 
     return OpinionModelProblem{T,D}(X, I, C; p=p, dom=dom, AgAgNetF=AgAgNetF)
