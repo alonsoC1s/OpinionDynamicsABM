@@ -1,5 +1,6 @@
 """
     frame(oms::ModelSimulation, t; title = "Simulation")
+using Base: uncolon
 
 Plots a single point in time of the simulation `oms` as a scatterplot showing agents and
 influencers coded by color.
@@ -51,7 +52,7 @@ taken by the integration algorithm.
 """
 function evolution(oms::ModelSimulation, filename; frame_title="Step ")
     anim = @animate for t in 1:length(oms)
-        frame(oms, t; title = "")
+        frame(oms, t; title="")
     end
 
     return gif(anim, filename; fps=15)
@@ -75,6 +76,27 @@ function evolve_compare(s1::A, s2::B, filename;
         p_ori = frame(s2, t; title="Bespoke sim.")
 
         plot(p_sde, p_ori; layout=l, plot_title=title)
+    end
+
+    return gif(anim, filename; fps=15)
+end
+
+"""
+    evolve_compare(s1::ModelSimulation{DiffEqSolver}, s2::ModelSimulation{BespokeSolver}, filename)
+
+Plots the evolution of simulations `s1` and `s2` side by side on a gif. The simulations
+are compared at the exact same timepoints, which are the timepoints where `BespokeSolver`
+acted.
+"""
+function evolve_compare(uncontrolled::A, controlled::A, filename;
+                        title="") where {T,D,A<:ModelSimulation{T,D,BespokeSolver}}
+    l = @layout [a b]
+
+    anim = @animate for t in 1:length(uncontrolled)
+        p_unct = frame(uncontrolled, t; title="Uncontrolled")
+        p_cont = frame(controlled, t; title="Controlled")
+
+        plot(p_unct, p_cont; layout=l, plot_title=title)
     end
 
     return gif(anim, filename; fps=15)
