@@ -167,7 +167,7 @@ Base.iterate(::OpinionModelProblem, ::Val{:done}) = nothing
 # end
 
 function OpinionModelProblem(dom::Vararg{Tuple{T,T},D}; p=ModelParams(),
-                             AgAgNetF::Function=I -> trues(p.n, p.n),
+                             AgAgNetF::Function=I -> fullyconnected_network(p.n),
                              seed=MersenneTwister()) where {D,T<:AbstractFloat}
     # We divide the domain into orthants, and each orthant has 1 influencer
     p.L != 2^D && throw(ArgumentError("Number of influencers has to be 2^dim"))
@@ -197,9 +197,9 @@ function OpinionModelProblem{T,D}(X₀::AbstractArray{T},
                                   Z₀::AbstractArray{T},
                                   C₀::BitMatrix;
                                   p=ModelParams(; L=size(Z₀, 1), n=size(X₀, 1)),
-                                  dom::NTuple{D,Tuple{T,T}}=_array_bounds(X₀),
-                                  AgAgNetF::Function=I -> trues(p.n, p.n)) where {D,
-                                                                                  T<:AbstractFloat}
+                                  AgAgNetF::Function=I -> fullyconnected_network(p.n),
+                                  dom::NTuple{D,Tuple{T,T}}=_array_bounds(X₀)) where {D,
+                                                                                      T<:AbstractFloat}
     p.L != size(Z₀, 1) &&
         throw(ArgumentError("`influencers_init` defined more influencers than contemplated" *
                             "in the parameters $(p)"))
@@ -379,10 +379,8 @@ end
 
 function Base.isapprox(s1::Sim,
                        s2::Sim;
-                       atol::Real=0,
-                       rtol::Real=atol > 0 ? 0 : √eps(T)) where {T,D,
-                                                                 Sim<:ModelSimulation{T,D,
-                                                                                      BespokeSolver}}
+                       rtol::Real=atol > 0 ? 0 : √eps(T),
+                       atol::Real=0) where {T,D,Sim<:ModelSimulation{T,D,BespokeSolver}}
     # Check maximum elementwise differences are below the tolerance
     ΔX = s1.X .- s2.X
     ΔY = s1.Y .- s2.Y
@@ -393,11 +391,8 @@ end
 
 function Base.isapprox(s1::SBe,
                        s2::SD;
-                       atol::Real=0,
-                       rtol::Real=atol > 0 ? 0 : √eps(T)) where {T,D,
-                                                                 SBe<:ModelSimulation{T,D,
-                                                                                      BespokeSolver},
-                                                                 SD<:ModelSimulation{T,D,
-                                                                                     DiffEqSolver}}
+                       rtol::Real=atol > 0 ? 0 : √eps(T),
+                       atol::Real=0) where {T,D,SBe<:ModelSimulation{T,D,BespokeSolver},
+                                            SD<:ModelSimulation{T,D,DiffEqSolver}}
     return Δ_isapprox(s1 - s2, atol, rtol)
 end
