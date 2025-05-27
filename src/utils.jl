@@ -113,6 +113,21 @@ function _ag_ag_echo_chamber(AgInfNet::BitArray)
 end
 
 """
+  fullyconnected_network(n)
+
+Constructs a fully connected network with no self-connections.
+"""
+function fullyconnected_network(n)
+    A = trues(n, n)
+
+    for i in 1:n
+        A[i, i] = 0
+    end
+
+    return BitMatrix(A)
+end
+
+"""
     _place_influencers(X::AbstractArray{Float64, N}, AgInfNet::BitMatrix)
 
 Returns the positions of the influencers in the problem space calculated as the barycenter

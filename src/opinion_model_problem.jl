@@ -286,11 +286,11 @@ Base.iterate(oms::ModelSimulation, ::Val{:Y}) = (oms.Y, Val(:Z))
 Base.iterate(oms::ModelSimulation, ::Val{:Z}) = (oms.Z, Val(:C))
 Base.iterate(oms::ModelSimulation, ::Val{:C}) = (oms.C, Val(:R))
 Base.iterate(oms::ModelSimulation, ::Val{:R}) = (oms.R, Val(:done))
-Base.iterate(oms::ModelSimulation, ::Val{:done}) = nothing
+Base.iterate(::ModelSimulation, ::Val{:done}) = nothing
 
 Base.length(oms::ModelSimulation) = size(oms.X, 3)
-Base.eltype(oms::ModelSimulation{T,D,S}) where {T,D,S} = T
-solvtype(oms::ModelSimulation{T,D,S}) where {T,D,S} = S
+Base.eltype(::ModelSimulation{T,D,S}) where {T,D,S} = T
+solvtype(::ModelSimulation{T,D,S}) where {T,D,S} = S
 
 function ModelSimulation{T,D,DiffEqSolver}(sol::S,
                                            dom::NTuple{D,Tuple{T,T}},

@@ -25,17 +25,16 @@ end
 
     # Testing the Agent-Agent attraction
     force = OpinionDynamicsABM.AgAg_attraction(omp.X, omp.A)
-    @test_reference "reftest-files/ag_ag_forces.npz" force by=isapprox
-
+    @test_reference "reftest-files/ag_ag_forces.npz" force by = isapprox
 
     # Testing the full simulation
     X, Y, Z, _, R = simulate!(omp; seed=fixed_seed)
 
     # Testing agent's positions
-    @test_reference "reftest-files/X.npz" X by=isapprox
-    @test_reference "reftest-files/Y.npz" Y by=isapprox
-    @test_reference "reftest-files/Z.npz" Z by=isapprox
-    @test_reference "reftest-files/R.npz" R by=isapprox
+    @test_reference "reftest-files/X.npz" X by = isapprox
+    @test_reference "reftest-files/Y.npz" Y by = isapprox
+    @test_reference "reftest-files/Z.npz" Z by = isapprox
+    @test_reference "reftest-files/R.npz" R by = isapprox
 end
 
 end # TestOpinionDynamics
