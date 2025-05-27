@@ -49,7 +49,7 @@ function ModelParams(;
     return ModelParams(L, M, n, η, a, b, c, σ, σ̂, σ̃, γ, Γ)
 end
 
-function Base.show(io::IO, params::ModelParams)
+function Base.show(::IO, params::ModelParams)
     L, M, n, η, a, b, c, σ, σ̂, σ̃, γ, Γ = params
     return print("Opinion Model parameters: η=$(η), a=$(a), b=$(b), c=$(c), σ=$(σ), " *
                  "σ_hat=$(σ̂), σ_tilde=$(σ̃), γ=$(γ), Γ=$(Γ)")
@@ -140,7 +140,7 @@ struct OpinionModelProblem{T<:AbstractFloat,D}
     end
 end
 
-function Base.show(io::IO, omp::OpinionModelProblem{T,D}) where {T,D}
+function Base.show(::IO, omp::OpinionModelProblem{T,D}) where {T,D}
     return print("""
                  $(D)-dimensional Agent Based Opinion Model with:
                  - $(omp.p.n) agents
@@ -156,7 +156,7 @@ Base.iterate(omp::OpinionModelProblem, ::Val{:I}) = (omp.Z, Val(:A))
 Base.iterate(omp::OpinionModelProblem, ::Val{:A}) = (omp.A, Val(:B))
 Base.iterate(omp::OpinionModelProblem, ::Val{:B}) = (omp.B, Val(:C))
 Base.iterate(omp::OpinionModelProblem, ::Val{:C}) = (omp.C, Val(:done))
-Base.iterate(omp::OpinionModelProblem, ::Val{:done}) = nothing
+Base.iterate(::OpinionModelProblem, ::Val{:done}) = nothing
 
 # function OpinionModelProblem(dom::Vararg{Tuple{Real,Real},D}; p=ModelParams(),
 #                              seed=MersenneTwister(),
@@ -167,9 +167,8 @@ Base.iterate(omp::OpinionModelProblem, ::Val{:done}) = nothing
 # end
 
 function OpinionModelProblem(dom::Vararg{Tuple{T,T},D}; p=ModelParams(),
-                             seed=MersenneTwister(),
-                             AgAgNetF::Function=I -> trues(p.n, p.n)) where {D,
-                                                                             T<:AbstractFloat}
+                             AgAgNetF::Function=I -> trues(p.n, p.n),
+                             seed=MersenneTwister()) where {D,T<:AbstractFloat}
     # We divide the domain into orthants, and each orthant has 1 influencer
     p.L != 2^D && throw(ArgumentError("Number of influencers has to be 2^dim"))
 

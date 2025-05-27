@@ -24,8 +24,8 @@ function AgAg_attraction(X::AbstractVecOrMat{T}, A::BitMatrix; φ=x -> exp(-x)) 
     I, D = size(X, 1), size(X, 2)
     J = size(X, 1) # Cheating. This only works for fully connected A
 
-    # FIXME: These can be pre-allocated all the way up in the integrator. Perhaps even
-    # reusing the same array over and over.
+    ## FIXME: These can be pre-allocated all the way up in the integrator. Perhaps even
+    ## reusing the same array over and over.
     # Pre allocating outputs
     # force = similar(X)
     force = zero(X)
@@ -53,7 +53,7 @@ function AgAg_attraction(X::AbstractVecOrMat{T}, A::BitMatrix; φ=x -> exp(-x)) 
             # Filling Wij in the same loop
             w = φ(norm(Dij))
             view(Wij, i, j) .= w
-            normalization_constant += w
+            normalization_constant += w # FIXME: I haven't accounted for this in the theory
         end
 
         # row-normalize W to get 1/sum(W[i, j] for j)
@@ -86,6 +86,7 @@ function MedAg_attraction(X::T, M::T, B::BitMatrix) where {T<:AbstractVecOrMat}
     # FIXME: Can be written even more compactly
 
     # Detect early if an agent is not connected to any Media Outlets
+    # FIXME: Do this at the integrator level so it's only checked once. B is not modified
     if !(all(any(B; dims=2)))
         throw(ErrorException("Model violation detected: An agent is disconnected from " *
                              "all media outlets."))
@@ -119,6 +120,7 @@ function InfAg_attraction(X::T, Z::T, C::BitMatrix) where {T<:AbstractVecOrMat}
     force = similar(X)
 
     # Detect early if an agent doesn't follow any influencers
+    # FIXME: Do this at the integrator level so it's only checked once.
     if !(all(any(C; dims=2)))
         throw(ErrorException("Model violation detected: An Agent doesn't follow any  " *
                              "influencers"))
@@ -134,6 +136,7 @@ function InfAg_attraction(X::T, Z::T, C::BitMatrix) where {T<:AbstractVecOrMat}
 end
 
 function InfAg_attraction(omp::OpinionModelProblem)
+    # FIXME: Fix outdated variable names
     X, Z, C = omp.X, omp.I, omp.AgInfNet
     return InfAg_attraction(X, Z, C)
 end
