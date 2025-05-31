@@ -136,8 +136,7 @@ function InfAg_attraction(X::T, Z::T, C::BitMatrix) where {T<:AbstractVecOrMat}
 end
 
 function InfAg_attraction(omp::OpinionModelProblem)
-    # FIXME: Fix outdated variable names
-    X, Z, C = omp.X, omp.I, omp.AgInfNet
+    X, Z, C = omp.X, omp.Z, omp.C
     return InfAg_attraction(X, Z, C)
 end
 

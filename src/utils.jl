@@ -199,29 +199,29 @@ function fragment_network(C::BitArray)
     return agent_ids, ntuple(i -> (clique_limits[i] + 1):clique_limits[i + 1], L)
 end
 
-function time_rate_tensor(R::AbstractArray{U,3}, C::BitArray{3}) where {U<:Real}
-    n, L, T = size(R)
+# function time_rate_tensor(R::AbstractArray{U,3}, C::BitArray{3}) where {U<:Real}
+#     n, L, T = size(R)
 
-    @assert size(R, 3) == size(C, 3)
-    # Λ = Array{T, 3}(undef, n, n, T)
-    Λ = similar(R, L, L, T)
+#     @assert size(R, 3) == size(C, 3)
+#     # Λ = Array{T, 3}(undef, n, n, T)
+#     Λ = similar(R, L, L, T)
 
-    # for (R_t, C_t) = zip(eachslice(R; dims=3), eachslice(C; dims=3))
-    for t in 1:T
-        C_t, R_t = view(C, :, :, t), view(R, :, :, t)
-        # Set "staying" rates to zero
-        leaving_rates = .!C_t .* R_t
-        # use fragmented network to sum leaving rate for whole clique at once
-        clique_ids, clique_bounds = fragment_network(BitMatrix(C_t))
-        for (l, range) in pairs(clique_bounds)
-            clique_rates = leaving_rates[clique_ids[range], :]
-            λ = vec(sum(clique_rates; dims=1))
-            @inbounds Λ[:, l, t] = λ
-            @inbounds Λ[l, l, t] = -sum(λ)
-        end
-    end
-    return Λ
-end
+#     # for (R_t, C_t) = zip(eachslice(R; dims=3), eachslice(C; dims=3))
+#     for t in 1:T
+#         C_t, R_t = view(C, :, :, t), view(R, :, :, t)
+#         # Set "staying" rates to zero
+#         leaving_rates = .!C_t .* R_t
+#         # use fragmented network to sum leaving rate for whole clique at once
+#         clique_ids, clique_bounds = fragment_network(BitMatrix(C_t))
+#         for (l, range) in pairs(clique_bounds)
+#             clique_rates = leaving_rates[clique_ids[range], :]
+#             λ = vec(sum(clique_rates; dims=1))
+#             @inbounds Λ[:, l, t] = λ
+#             @inbounds Λ[l, l, t] = -sum(λ)
+#         end
+#     end
+#     return Λ
+# end
 
 """
     Δ_isapprox(Δarray, [atol], [rtol])
@@ -244,8 +244,6 @@ function arrays_areapprox(ΔA::A, ΔB::A, ΔC::A, atol::Real=0,
                           rtol::Real=atol > 0 ? 0 : 1e-9) where {A<:AbstractArray}
     return Δ_isapprox(vcat(ΔA, ΔB, ΔC))
 end
-
-# TODO: Test legacy functions
 
 function legacy_rates(B, x, FolInfNet, inf, eta)
     n, L = size(x, 1), size(inf, 1)

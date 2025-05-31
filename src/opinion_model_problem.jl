@@ -187,7 +187,7 @@ function OpinionModelProblem(dom::Vararg{Tuple{T,T},D}; p=ModelParams(),
 
     if D == 1
         X = vec(X)
-        M = vec(M)
+        I = vec(I)
     end
 
     return OpinionModelProblem{T,D}(X, I, C; p=p, dom=dom, AgAgNetF=AgAgNetF)
