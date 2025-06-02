@@ -24,8 +24,6 @@ function AgAg_attraction(X::AbstractVecOrMat{T}, A::BitMatrix; φ=x -> exp(-x)) 
     I, D = size(X)
     J = size(X, 1) # Cheating. This only works for fully connected A
 
-    ## FIXME: These can be pre-allocated all the way up in the integrator. Perhaps even
-    ## reusing the same array over and over.
     # Pre allocating outputs. I can get away with not initializing force, not so with D, W.
     force = similar(X)
     Dijd = zeros(I, J, D)
@@ -53,6 +51,7 @@ function AgAg_attraction!(force, Dijd, Wij, X::AbstractVecOrMat{T}, A::BitMatrix
         end
 
         # Distance between agent and neighbor
+        # FIXME: `neighbors` is being allcoated every loop
         for j in neighbors # |neighbors| <= |J| so no index-out-of-bounds
             neighbor = view(X, j, :)
             Dij = view(Dijd, i, j, :)
@@ -90,25 +89,20 @@ Mathematically, the function computes,
 """
 function MedAg_attraction(X::T, M::T, B::BitMatrix) where {T<:AbstractVecOrMat}
     force = similar(X)
-    # FIXME: Can be written even more compactly
-
-    # Detect early if an agent is not connected to any Media Outlets
-    # FIXME: Do this at the integrator level so it's only checked once. B is not modified
-    if !(all(any(B; dims=2)))
-        throw(ErrorException("Model violation detected: An agent is disconnected from " *
-                             "all media outlets."))
-    end
-
-    for i in axes(X, 1)
-        media_idx = findfirst(B[i, :])
-        force[i, :] = M[media_idx, :] - X[i, :]
-    end
+   MedAg_attraction!(force, X, M, B)
 
     return force
 end
 
 function MedAg_attraction(omp::OpinionModelProblem)
     return MedAg_attraction(omp.X, omp.Y, omp.B)
+end
+
+function MedAg_attraction!(Force, X::T, M::T, B::BitMatrix) where {T<:AbstractVecOrMat}
+    for i in axes(X, 1)
+        media_idx = findfirst(B[i, :])
+        Force[i, :] = M[media_idx, :] - X[i, :]
+    end
 end
 
 @doc raw"""
@@ -125,19 +119,7 @@ Mathematically, the function computes,
 """
 function InfAg_attraction(X::T, Z::T, C::BitMatrix) where {T<:AbstractVecOrMat}
     force = similar(X)
-
-    # Detect early if an agent doesn't follow any influencers
-    # FIXME: Do this at the integrator level so it's only checked once.
-    if !(all(any(C; dims=2)))
-        throw(ErrorException("Model violation detected: An Agent doesn't follow any  " *
-                             "influencers"))
-    end
-
-    for i in axes(X, 1)
-        # force[i, :] = sum(C[i, m] * (Z[m, :] - X[i, :]) for m = axes(C, 2)) # ./ count(C[i, :])
-        influencer_idx = findfirst(C[i, :])
-        force[i, :] = Z[influencer_idx, :] - X[i, :]
-    end
+    InfAg_attraction!(force, X, Z, C)
 
     return force
 end
@@ -145,6 +127,14 @@ end
 function InfAg_attraction(omp::OpinionModelProblem)
     X, Z, C = omp.X, omp.Z, omp.C
     return InfAg_attraction(X, Z, C)
+end
+
+function InfAg_attraction!(Force, X::T, Z::T, C::BitMatrix) where {T<:AbstractVecOrMat}
+    for i in axes(X, 1)
+        # force[i, :] = sum(C[i, m] * (Z[m, :] - X[i, :]) for m = axes(C, 2)) # ./ count(C[i, :])
+        influencer_idx = findfirst(C[i, :])
+        Force[i, :] = Z[influencer_idx, :] - X[i, :]
+    end
 end
 
 """
@@ -200,12 +190,20 @@ function agent_drift(X::T, Y::T, Z::T, A::Bm, B::Bm, C::Bm,
            c * InfAg_attraction(X, Z, C)
 end
 
-function agent_drift!(Force, Dijd, Wij, X::T, Y::T, Z::T, A::Bm, B::Bm, C::Bm,
+function agent_drift!(Force, Ftmp, Dijd, Wij, X::T, Y::T, Z::T, A::Bm, B::Bm, C::Bm,
                      a, b, c) where {T<:AbstractVecOrMat,Bm<:BitMatrix}
 
-    AgAg_attraction!(Force, Dijd, Wij, X, A)
+    # Aggregate results into `Force` reusing `Ftmp` as buffer
+    AgAg_attraction!(Ftmp, Dijd, Wij, X, A)
+    Force .= a .* Ftmp
 
-    Force .= a * Force + b * MedAg_attraction(X, Y, B) + c * InfAg_attraction(X, Z, C)
+    MedAg_attraction!(Ftmp, X, Y, B)
+    Force .+= b .* Ftmp
+
+    InfAg_attraction!(Ftmp, X, Z, C)
+    Force .+= c .* Ftmp
+
+    # Force .= a * Force + b * MedAg_attraction(X, Y, B) + c * InfAg_attraction(X, Z, C)
 end
 
 @doc raw"""

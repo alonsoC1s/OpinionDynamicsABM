@@ -32,6 +32,7 @@ function simulate!(omp::OpinionModelProblem{T,D};
 
     # Reusable arrays for forces, distances and weights
     FA = similar(X)
+    Ftmp = similar(FA)
     Dijd = Array{T,3}(undef, n, n, D)
     Wij = Array{T,2}(undef, n, n)
 
@@ -43,10 +44,22 @@ function simulate!(omp::OpinionModelProblem{T,D};
         Z = view(rZ, :, :, i)
         C = view(rC, :, :, i) |> BitMatrix
 
+        ## Check network consistency
+        # Detect early if an agent doesn't follow any influencers
+        if !(all(any(C; dims=2)))
+            throw(ErrorException("Model violation detected: An Agent doesn't follow any  " *
+                                 "influencers"))
+        end
+        # Detect early if an agent is not connected to any Media Outlets
+        if !(all(any(B; dims=2)))
+            throw(ErrorException("Model violation detected: An agent is disconnected from " *
+                                 "all media outlets."))
+        end
+
         # FIXME: Try using the dotted operators to fuse vectorized operations
         # Agents movement
         # FA_OLD = agent_drift(X, Y, Z, A, B, C, a, b, c)
-        agent_drift!(FA, Dijd, Wij, X, Y, Z, A, B, C, a, b, c)
+        agent_drift!(FA, Ftmp, Dijd, Wij, X, Y, Z, A, B, C, a, b, c)
         # @assert FA_OLD == FA
         # FA was mutated by previous line
         rX[:, :, i + 1] .= X + dt * FA + σ * sqrt(dt) * randn(n, D)
