@@ -30,6 +30,11 @@ function simulate!(omp::OpinionModelProblem{T,D};
     rZ[:, :, begin] = Z
     rC[:, :, begin] = C
 
+    # Reusable arrays for forces, distances and weights
+    FA = similar(X)
+    Dijd = Array{T,3}(undef, n, n, D)
+    Wij = Array{T,2}(undef, n, n)
+
     # Solve with Euler-Maruyama
     t_points = 1:(Nt - 1)
     for i in t_points
@@ -40,7 +45,10 @@ function simulate!(omp::OpinionModelProblem{T,D};
 
         # FIXME: Try using the dotted operators to fuse vectorized operations
         # Agents movement
-        FA = agent_drift(X, Y, Z, A, B, C, a, b, c)
+        # FA_OLD = agent_drift(X, Y, Z, A, B, C, a, b, c)
+        agent_drift!(FA, Dijd, Wij, X, Y, Z, A, B, C, a, b, c)
+        # @assert FA_OLD == FA
+        # FA was mutated by previous line
         rX[:, :, i + 1] .= X + dt * FA + σ * sqrt(dt) * randn(n, D)
 
         # Media movements
@@ -137,7 +145,6 @@ influencer_switching_callback = DiscreteCallback(true_condition, influencer_swit
 save_C = function (u, t, integrator)
     return integrator.p.C
 end
-
 
 """
     build_sdeproblem(omp::OpinionModelProblem, tspan)

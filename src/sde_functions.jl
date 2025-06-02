@@ -26,13 +26,20 @@ function AgAg_attraction(X::AbstractVecOrMat{T}, A::BitMatrix; φ=x -> exp(-x)) 
 
     ## FIXME: These can be pre-allocated all the way up in the integrator. Perhaps even
     ## reusing the same array over and over.
-    # Pre allocating outputs
+    # Pre allocating outputs. I can get away with not initializing force, not so with D, W.
     force = similar(X)
-    # force = zero(X)
-    # Dijd = similar(X, I, J, D)
     Dijd = zeros(I, J, D)
-    # Wij = similar(X, I, J)
     Wij = zeros(I, J)
+
+    AgAg_attraction!(force, Dijd, Wij, X, A; φ=φ)
+
+    return force
+end
+
+function AgAg_attraction!(force, Dijd, Wij, X::AbstractVecOrMat{T}, A::BitMatrix; φ=x -> exp(-x)) where {T}
+    # Resetting buffers. Force can be left as-is, every entry is guaranteed to be overwritten.
+    fill!(Dijd, zero(T))
+    fill!(Wij, zero(T))
 
     for i in axes(force, 1) # Iterate over agents
         agent = view(X, i, :)
@@ -63,7 +70,6 @@ function AgAg_attraction(X::AbstractVecOrMat{T}, A::BitMatrix; φ=x -> exp(-x)) 
 
     # Calculate the attraction force per dimension with Einstein sum notation
     force .= ein"ijd,ij -> id"(Dijd, Wij)
-    return force
 end
 
 function AgAg_attraction(omp::OpinionModelProblem{T}; φ=x -> exp(-x)) where {T}
@@ -192,6 +198,14 @@ function agent_drift(X::T, Y::T, Z::T, A::Bm, B::Bm, C::Bm,
     return a * AgAg_attraction(X, A) +
            b * MedAg_attraction(X, Y, B) +
            c * InfAg_attraction(X, Z, C)
+end
+
+function agent_drift!(Force, Dijd, Wij, X::T, Y::T, Z::T, A::Bm, B::Bm, C::Bm,
+                     a, b, c) where {T<:AbstractVecOrMat,Bm<:BitMatrix}
+
+    AgAg_attraction!(Force, Dijd, Wij, X, A)
+
+    Force .= a * Force + b * MedAg_attraction(X, Y, B) + c * InfAg_attraction(X, Z, C)
 end
 
 @doc raw"""
