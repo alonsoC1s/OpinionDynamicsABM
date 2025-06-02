@@ -1,6 +1,6 @@
 module OpinionDynamicsABM
 
-using LinearAlgebra, Plots, Random, Distributions, Statistics, OMEinsum
+using LinearAlgebra, Plots, Random, Distributions, Statistics, OMEinsum, SparseArrays
 using SciMLBase, DiffEqCallbacks, StochasticDiffEq
 
 export _boolean_combinator,

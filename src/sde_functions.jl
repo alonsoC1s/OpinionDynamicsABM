@@ -21,14 +21,14 @@ w_{ij} = A_{ij} \, \varphi(\| x_j - x_t \|).
 The resulting row vectors are stored as rows of the matrix returned.
 """
 function AgAg_attraction(X::AbstractVecOrMat{T}, A::BitMatrix; φ=x -> exp(-x)) where {T}
-    I, D = size(X, 1), size(X, 2)
+    I, D = size(X)
     J = size(X, 1) # Cheating. This only works for fully connected A
 
     ## FIXME: These can be pre-allocated all the way up in the integrator. Perhaps even
     ## reusing the same array over and over.
     # Pre allocating outputs
-    # force = similar(X)
-    force = zero(X)
+    force = similar(X)
+    # force = zero(X)
     # Dijd = similar(X, I, J, D)
     Dijd = zeros(I, J, D)
     # Wij = similar(X, I, J)
@@ -40,7 +40,8 @@ function AgAg_attraction(X::AbstractVecOrMat{T}, A::BitMatrix; φ=x -> exp(-x)) 
         normalization_constant = zero(T)
 
         if isempty(neighbors)
-            view(force, i, :) .= zeros(T, 1, D)
+            # view(force, i, :) .= zeros(T, 1, D)
+            fill!(view(force, i, :), zero(T))
             continue
         end
 
@@ -48,7 +49,7 @@ function AgAg_attraction(X::AbstractVecOrMat{T}, A::BitMatrix; φ=x -> exp(-x)) 
         for j in neighbors # |neighbors| <= |J| so no index-out-of-bounds
             neighbor = view(X, j, :)
             Dij = view(Dijd, i, j, :)
-            Dij .= neighbor .- agent
+            @. Dij = neighbor - agent
 
             # Filling Wij in the same loop
             w = φ(norm(Dij))
