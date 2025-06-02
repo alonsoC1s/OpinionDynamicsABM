@@ -61,5 +61,38 @@ end
     # Testing agreement with legacy implementations (not really crucial)
     old_agent_force = OpinionDynamicsABM.legacy_attraction(X, A)
     @test_reference "reftest-files/nonfull/ag_ag_forces.npz" old_agent_force by = isapprox
+
+    @testset "Hand-computed example on block network" begin
+        X = [-1 1.0; 0.0 1.0; 1.0 1.0; -1 -1; 0 -1; 1 -1]
+        A = [trues(3,3) falses(3,3); falses(3,3) trues(3,3)]
+        # To be used when testing the in-place implementation
+        ref_Dijd = zeros(6, 6, 2)
+        dist_block = [0 1 2; -1 0 1; -2 -1 0]
+        ref_Dijd[1:3, 1:3, 1] .= dist_block
+        ref_Dijd[4:6, 4:6, 1] .= dist_block
+        ref_Wij = zeros(6, 6)
+        w_block = [1 exp(-1) exp(-2); exp(-1) 1 exp(-1); exp(-2) exp(-1) 1]
+        normalizers = [1+exp(-1)+exp(-2); 1+2*exp(-1); 1+exp(-1)+exp(-2)]
+        w_block .= w_block ./ normalizers
+        ref_Wij[1:3, 1:3] .= w_block
+        ref_Wij[4:6, 4:6] .= w_block
+        ref_Force = zeros(6, 2)
+        c = inv(1 + exp(-1) + exp(-2))
+        k = c * exp(-1) + 2 * c * exp(-2)
+        ref_Force[:, 1] = [k, 0, -k, k, 0, -k]
+
+        ##
+        I, D = size(X)
+        J = size(X, 1) # Cheating. This only works for fully connected A
+        Fid = similar(X)
+        Dijd = zeros(I, J, D)
+        Wij = zeros(I, J)
+
+        OpinionDynamicsABM.AgAg_attraction!(Fid, Dijd, Wij, X, A)
+        @test Fid == ref_Force
+        @test Dijd == ref_Dijd
+        @test Wij == ref_Wij
+    end
+
 end
 end

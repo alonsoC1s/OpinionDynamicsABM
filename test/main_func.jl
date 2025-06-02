@@ -20,12 +20,8 @@ end
 
 @testset "Test simulations" begin
     fixed_seed = 210624
-
     omp = OpinionModelProblem((-2.0, 2.0), (-2.0, 2.0); seed=fixed_seed)
 
-    # Testing the Agent-Agent attraction
-    force = OpinionDynamicsABM.AgAg_attraction(omp.X, omp.A)
-    @test_reference "reftest-files/ag_ag_forces.npz" force by = isapprox
 
     # Testing the full simulation
     X, Y, Z, _, R = simulate!(omp; seed=fixed_seed)
