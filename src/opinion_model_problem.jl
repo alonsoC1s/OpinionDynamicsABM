@@ -70,6 +70,9 @@ Base.iterate(p::ModelParams, ::Val{:γ}) = (p.γ, Val(:Γ))
 Base.iterate(p::ModelParams, ::Val{:Γ}) = (p.Γ, Val(:done))
 Base.iterate(p::ModelParams, ::Val{:done}) = nothing
 
+# Implementing networks as either bit arrays or sparse arrays
+const AdjMatrix{T} = Union{BitMatrix, SparseMatrixCSC{T}}
+
 """
 Represents a `D`-dimensional opinion dynamics problem with specific `ModelParams`. See
 [`ModelParams`](@ref).
@@ -126,9 +129,9 @@ struct OpinionModelProblem{T<:AbstractFloat,D}
     X::AbstractVecOrMat{T} # Agent coordinates
     Y::AbstractVecOrMat{T} # Media coordinates
     Z::AbstractVecOrMat{T} # Influencer coordinates
-    A::BitMatrix # Agent-Agent adjacency matrix
-    B::BitMatrix # Agent-Media adjacency matrix
-    C::BitMatrix # Agent-Influencer adjaceny matrix
+    A::AdjMatrix{T} # Agent-Agent adjacency matrix
+    B::AdjMatrix{T} # Agent-Media adjacency matrix
+    C::AdjMatrix{T} # Agent-Influencer adjaceny matrix
 
     # FIXME: Implement internal constructor to enforce invariants like symmetry
     function OpinionModelProblem{T,D}(p, domain, X, Y, Z, A, B, C) where {T,D}
@@ -195,7 +198,7 @@ end
 
 function OpinionModelProblem{T,D}(X₀::AbstractArray{T},
                                   Z₀::AbstractArray{T},
-                                  C₀::BitMatrix;
+                                  C₀::AdjMatrix{T};
                                   p=ModelParams(; L=size(Z₀, 1), n=size(X₀, 1)),
                                   AgAgNetF::Function=I -> fullyconnected_network(p.n),
                                   dom::NTuple{D,Tuple{T,T}}=_array_bounds(X₀)) where {D,

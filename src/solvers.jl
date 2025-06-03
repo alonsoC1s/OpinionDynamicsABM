@@ -14,6 +14,12 @@ function simulate!(omp::OpinionModelProblem{T,D};
     X, Y, Z, A, B, C = omp
     L, M, n, η, a, b, c, σ, σ̂, σ̃, γ, Γ = omp.p
 
+    # Detect early if an agent is not connected to any Media Outlets
+    if !(all(any(B; dims=2)))
+        throw(ErrorException("Model violation detected: An agent is disconnected from " *
+                             "all media outlets."))
+    end
+
     # Seeding the RNG
     Random.seed!(seed)
 
@@ -21,9 +27,9 @@ function simulate!(omp::OpinionModelProblem{T,D};
     rX = zeros(T, n, D, Nt)
     rY = zeros(T, M, D, Nt)
     rZ = zeros(T, L, D, Nt)
-    rC = BitArray{3}(undef, n, L, Nt)
-    # Jump rates can be left uninitialzied. Not defined for the last time step
-    rR = Array{T,3}(undef, n, L, Nt - 1)
+    rC = similar(C, n, L, Nt)
+    # Jump rates can be left uninitialized. Not defined for the last time step
+    rR = similar(X, n, L, Nt - 1)
 
     rX[:, :, begin] = X
     rY[:, :, begin] = Y
@@ -33,12 +39,12 @@ function simulate!(omp::OpinionModelProblem{T,D};
     # Reusable arrays for forces, distances and weights
     FA = similar(X)
     Ftmp = similar(FA)
-    Dijd = Array{T,3}(undef, n, n, D)
-    Wij = Array{T,2}(undef, n, n)
+    Dijd = similar(X, n, n, D)
+    Wij = similar(X, n, n)
 
     # Solve with Euler-Maruyama
     t_points = 1:(Nt - 1)
-    for i in t_points
+    @inbounds for i in t_points
         X = view(rX, :, :, i)
         Y = view(rY, :, :, i)
         Z = view(rZ, :, :, i)
@@ -50,17 +56,10 @@ function simulate!(omp::OpinionModelProblem{T,D};
             throw(ErrorException("Model violation detected: An Agent doesn't follow any  " *
                                  "influencers"))
         end
-        # Detect early if an agent is not connected to any Media Outlets
-        if !(all(any(B; dims=2)))
-            throw(ErrorException("Model violation detected: An agent is disconnected from " *
-                                 "all media outlets."))
-        end
 
         # FIXME: Try using the dotted operators to fuse vectorized operations
         # Agents movement
-        # FA_OLD = agent_drift(X, Y, Z, A, B, C, a, b, c)
         agent_drift!(FA, Ftmp, Dijd, Wij, X, Y, Z, A, B, C, a, b, c)
-        # @assert FA_OLD == FA
         # FA was mutated by previous line
         rX[:, :, i + 1] .= X + dt * FA + σ * sqrt(dt) * randn(n, D)
 

@@ -20,7 +20,7 @@ w_{ij} = A_{ij} \, \varphi(\| x_j - x_t \|).
 ```
 The resulting row vectors are stored as rows of the matrix returned.
 """
-function AgAg_attraction(X::AbstractVecOrMat{T}, A::BitMatrix; φ=x -> exp(-x)) where {T}
+function AgAg_attraction(X::AbstractArray{T}, A::AdjMatrix{T}; φ=x -> exp(-x)) where {T}
     I, D = size(X)
     J = size(X, 1) # Cheating. This only works for fully connected A
 
@@ -34,12 +34,13 @@ function AgAg_attraction(X::AbstractVecOrMat{T}, A::BitMatrix; φ=x -> exp(-x)) 
     return force
 end
 
-function AgAg_attraction!(force, Dijd, Wij, X::AbstractVecOrMat{T}, A::BitMatrix; φ=x -> exp(-x)) where {T}
+# function AgAg_attraction!(force, Dijd, Wij, X::AbstractArray{T}, A::AdjMatrix{T}; φ=x -> exp(-x)) where {T}
+function AgAg_attraction!(force, Dijd, Wij, X::AbstractArray{T}, A; φ=x -> exp(-x)) where {T}
     # Resetting buffers. Force can be left as-is, every entry is guaranteed to be overwritten.
     fill!(Dijd, zero(T))
     fill!(Wij, zero(T))
 
-    for i in axes(force, 1) # Iterate over agents
+    @inbounds for i in axes(force, 1) # Iterate over agents
         agent = view(X, i, :)
         neighbors = findall(@view A[i, :])
         normalization_constant = zero(T)
@@ -52,12 +53,13 @@ function AgAg_attraction!(force, Dijd, Wij, X::AbstractVecOrMat{T}, A::BitMatrix
 
         # Distance between agent and neighbor
         # FIXME: `neighbors` is being allcoated every loop
-        for j in neighbors # |neighbors| <= |J| so no index-out-of-bounds
+        @inbounds for j in neighbors # |neighbors| <= |J| so no index-out-of-bounds
             neighbor = view(X, j, :)
             Dij = view(Dijd, i, j, :)
             @. Dij = neighbor - agent
 
             # Filling Wij in the same loop
+            # FIXME: This norm is too slow. Either unroll (prev line) or use SVector
             w = φ(norm(Dij))
             view(Wij, i, j) .= w
             normalization_constant += w # FIXME: I haven't accounted for this in the theory
@@ -69,6 +71,11 @@ function AgAg_attraction!(force, Dijd, Wij, X::AbstractVecOrMat{T}, A::BitMatrix
 
     # Calculate the attraction force per dimension with Einstein sum notation
     force .= ein"ijd,ij -> id"(Dijd, Wij)
+end
+
+# Version specialized on abstract array version of the adjacency matrix
+function AgAg_attraction!(force, Dijd, Wij, X::AbstractArray{T}, A::SubArray{T, D, SparseMatrixCSC{T, Ti}, I, L}; φ=x -> exp(-x)) where {T, D, Ti, I, L}
+    @info "Called specialized method for sparse arrays"
 end
 
 function AgAg_attraction(omp::OpinionModelProblem{T}; φ=x -> exp(-x)) where {T}
