@@ -27,6 +27,7 @@ function simulate!(omp::OpinionModelProblem{T,D};
     rX = zeros(T, n, D, Nt)
     rY = zeros(T, M, D, Nt)
     rZ = zeros(T, L, D, Nt)
+    rA = similar(A, n, n, Nt)
     rC = similar(C, n, L, Nt)
     # Jump rates can be left uninitialized. Not defined for the last time step
     rR = similar(X, n, L, Nt - 1)
@@ -34,6 +35,7 @@ function simulate!(omp::OpinionModelProblem{T,D};
     rX[:, :, begin] = X
     rY[:, :, begin] = Y
     rZ[:, :, begin] = Z
+    rA[:, :, begin] = A
     rC[:, :, begin] = C
 
     # Reusable arrays for forces, distances and weights
@@ -49,6 +51,7 @@ function simulate!(omp::OpinionModelProblem{T,D};
         Y = view(rY, :, :, i)
         Z = view(rZ, :, :, i)
         C = view(rC, :, :, i) # |> BitMatrix
+        A = view(rA, :, :, i)
 
         ## Check network consistency
         # Detect early if an agent doesn't follow any influencers
@@ -76,6 +79,8 @@ function simulate!(omp::OpinionModelProblem{T,D};
         rR[:, :, i] .= rates
         R = view(rR, :, :, i)
         view(rC, :, :, i + 1) .= switch_influencer(C, X, Z, R, dt)
+        # Record changes to Agent-Agent adj matrix
+        rA[:, :, i+1] .= A
 
         if echo_chamber
             # Modify Agent-Agent interaction network
