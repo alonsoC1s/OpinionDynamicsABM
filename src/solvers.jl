@@ -48,7 +48,7 @@ function simulate!(omp::OpinionModelProblem{T,D};
         X = view(rX, :, :, i)
         Y = view(rY, :, :, i)
         Z = view(rZ, :, :, i)
-        C = view(rC, :, :, i) |> BitMatrix
+        C = view(rC, :, :, i) # |> BitMatrix
 
         ## Check network consistency
         # Detect early if an agent doesn't follow any influencers
