@@ -66,7 +66,7 @@ function _orthantize(X)
 end
 
 """
-    _array_bound(X::AbstractMatrix)
+    _array_bounds(X::AbstractMatrix)
 
 Return the colwise minima and maxima of the `X`, which is interpreted as a matrix of
 coordinates of agents on opinion space. Each column corresponds to a dimension of opinion
