@@ -112,6 +112,18 @@ function _ag_ag_echo_chamber(AgInfNet::BitArray)
     return AgAgNet
 end
 
+function _antidiagonal!(AgAgNet::AbstractArray)
+    # Create a block diagonal and rotate so its still symmetric
+    n = size(AgAgNet, 1)
+    blocksize = Int(n / 5)
+
+    block = spones(blocksize, blocksize)
+    I = blockdiag(block, block, block, block, block)
+    @assert size(I) == size(AgAgNet)
+    AgAgNet .= rotr90(I)
+    @assert issymmetric(AgAgNet)
+end
+
 """
   fullyconnected_network(n)
 

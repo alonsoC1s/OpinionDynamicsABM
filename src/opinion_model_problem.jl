@@ -139,6 +139,8 @@ struct OpinionModelProblem{T<:AbstractFloat,D}
             throw(ArgumentError("Agents have self-connections"))
 
         issymmetric(A) || throw(ArgumentError("Matrix A is not symmetric"))
+
+        X = sortslices(X; dims=1)
         return new{T,D}(p, domain, X, Y, Z, A, B, C)
     end
 end

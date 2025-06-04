@@ -10,7 +10,7 @@ function simulate!(omp::OpinionModelProblem{T,D};
                    Nt=200,
                    dt=0.01,
                    seed=MersenneTwister(),
-                   echo_chamber::Bool=false) where {T,D}
+                   control::Bool=false) where {T,D}
     X, Y, Z, A, B, C = omp
     L, M, n, η, a, b, c, σ, σ̂, σ̃, γ, Γ = omp.p
 
@@ -47,11 +47,11 @@ function simulate!(omp::OpinionModelProblem{T,D};
     # Solve with Euler-Maruyama
     t_points = 1:(Nt - 1)
     @inbounds for i in t_points
-        X = view(rX,:,:,i)
-        Y = view(rY,:,:,i)
-        Z = view(rZ,:,:,i)
-        C = view(rC,:,:,i) # |> BitMatrix
-        A = view(rA,:,:,i)
+        X = view(rX, :, :, i)
+        Y = view(rY, :, :, i)
+        Z = view(rZ, :, :, i)
+        C = view(rC, :, :, i) # |> BitMatrix
+        A = view(rA, :, :, i)
 
         ## Check network consistency
         # Detect early if an agent doesn't follow any influencers
@@ -79,13 +79,16 @@ function simulate!(omp::OpinionModelProblem{T,D};
         rR[:, :, i] .= rates
         R = view(rR, :, :, i)
         view(rC, :, :, i + 1) .= switch_influencer(C, X, Z, R, dt)
-        # Record changes to Agent-Agent adj matrix
-        rA[:, :, i+1] .= A
 
-        if echo_chamber
+        if control && i >= 100
             # Modify Agent-Agent interaction network
-            A .= _ag_ag_echo_chamber(BitMatrix(rC[:, :, i + 1]))
+            # A .= _ag_ag_echo_chamber(BitMatrix(rC[:, :, i + 1]))
+            fill!(A, zero(T))
+            # _antidiagonal!(A)
         end
+
+        # Record changes to Agent-Agent adj matrix
+        rA[:, :, i + 1] .= A
     end
 
     solver_meta = BespokeSolver(collect(range(zero(T); step=dt, length=Nt)))
