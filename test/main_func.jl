@@ -23,7 +23,6 @@ end
     deterministic_params = ModelParams(σ=0.0, σ̂=0.0, σ̃=0.0)
     omp = OpinionModelProblem((-2.0, 2.0), (-2.0, 2.0); seed=fixed_seed, p=deterministic_params)
 
-
     # Testing the full simulation
     X, Y, Z, _, R = simulate!(omp; seed=fixed_seed)
 

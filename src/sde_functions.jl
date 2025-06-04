@@ -34,7 +34,9 @@ function AgAg_attraction(X::AbstractArray{T}, A::AdjMatrix{T}; φ=x -> exp(-x)) 
     return force
 end
 
-# function AgAg_attraction!(force, Dijd, Wij, X::AbstractArray{T}, A::AdjMatrix{T}; φ=x -> exp(-x)) where {T}
+# function AgAg_attraction!(force, Dijd, Wij, X::AbstractArray{T},
+#                           A::SubArray{Bool,D,BitArray{3},I,L};
+#                           φ=x -> exp(-x)) where {T,D,I,L}
 function AgAg_attraction!(force, Dijd, Wij, X::AbstractArray{T}, A; φ=x -> exp(-x)) where {T}
     # Resetting buffers. Force can be left as-is, every entry is guaranteed to be overwritten.
     fill!(Dijd, zero(T))
@@ -73,7 +75,9 @@ function AgAg_attraction!(force, Dijd, Wij, X::AbstractArray{T}, A; φ=x -> exp(
 end
 
 # Version specialized on abstract array version of the adjacency matrix
-function AgAg_attraction!(force, Dijd, Wij, X::AbstractArray{T}, A::SubArray{T, D, SparseMatrixCSC{T, Ti}, I, L}; φ=x -> exp(-x)) where {T, D, Ti, I, L}
+function AgAg_attraction!(force, Dijd, Wij, X::AbstractArray{T},
+                          A::SubArray{T,D,SparseMatrixCSC{T,Ti},I,L};
+                          φ=x -> exp(-x)) where {T,D,Ti,I,L}
     @info "Called specialized method for sparse arrays"
 end
 
@@ -95,7 +99,7 @@ Mathematically, the function computes,
 """
 function MedAg_attraction(X, M, B)
     force = similar(X)
-   MedAg_attraction!(force, X, M, B)
+    MedAg_attraction!(force, X, M, B)
 
     return force
 end

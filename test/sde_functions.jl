@@ -64,7 +64,7 @@ end
 
     @testset "Hand-computed example on block network" begin
         X = [-1 1.0; 0.0 1.0; 1.0 1.0; -1 -1; 0 -1; 1 -1]
-        A = [trues(3,3) falses(3,3); falses(3,3) trues(3,3)]
+        A = [trues(3, 3) falses(3, 3); falses(3, 3) trues(3, 3)]
         # To be used when testing the in-place implementation
         ref_Dijd = zeros(6, 6, 2)
         dist_block = [0 1 2; -1 0 1; -2 -1 0]
@@ -93,6 +93,5 @@ end
         @test Dijd == ref_Dijd
         @test Wij == ref_Wij
     end
-
 end
 end

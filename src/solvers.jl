@@ -47,11 +47,11 @@ function simulate!(omp::OpinionModelProblem{T,D};
     # Solve with Euler-Maruyama
     t_points = 1:(Nt - 1)
     @inbounds for i in t_points
-        X = view(rX, :, :, i)
-        Y = view(rY, :, :, i)
-        Z = view(rZ, :, :, i)
-        C = view(rC, :, :, i) # |> BitMatrix
-        A = view(rA, :, :, i)
+        X = view(rX,:,:,i)
+        Y = view(rY,:,:,i)
+        Z = view(rZ,:,:,i)
+        C = view(rC,:,:,i) # |> BitMatrix
+        A = view(rA,:,:,i)
 
         ## Check network consistency
         # Detect early if an agent doesn't follow any influencers

@@ -51,7 +51,7 @@ taken by the integration algorithm.
 """
 function evolution(oms::ModelSimulation, filename; frame_title="Step ")
     anim = @animate for t in 1:length(oms)
-        frame(oms, t; title = "")
+        frame(oms, t; title="")
     end
 
     return gif(anim, filename; fps=15)

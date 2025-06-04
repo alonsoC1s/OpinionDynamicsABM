@@ -71,7 +71,7 @@ Base.iterate(p::ModelParams, ::Val{:Γ}) = (p.Γ, Val(:done))
 Base.iterate(p::ModelParams, ::Val{:done}) = nothing
 
 # Implementing networks as either bit arrays or sparse arrays
-const AdjMatrix{T} = Union{BitMatrix, SparseMatrixCSC{T}}
+const AdjMatrix{T} = Union{BitMatrix,SparseMatrixCSC{T}}
 
 """
 Represents a `D`-dimensional opinion dynamics problem with specific `ModelParams`. See
