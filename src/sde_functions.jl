@@ -76,9 +76,48 @@ end
 
 # Version specialized on abstract array version of the adjacency matrix
 function AgAg_attraction!(force, Dijd, Wij, X::AbstractArray{T},
-                          A::SubArray{T,D,SparseMatrixCSC{T,Ti},I,L};
-                          φ=x -> exp(-x)) where {T,D,Ti,I,L}
-    @info "Called specialized method for sparse arrays"
+                          A::SparseOrViewMatrix{T};
+                          φ=x -> exp(-x)) where {T}
+    # Resetting buffers. fill! is calls an optimized version for sparse  arrays like these
+    fill!(force, zero(T)) # Resetting to 0 is crucial
+    fill!(Dijd, zero(T))
+    fill!(Wij, zero(T))
+
+    # Look at the connection weight of all agents connected to agent_idx
+    rows = rowvals(A)
+    vals = nonzeros(A)
+    w_i = zeros(T, size(Wij, 1))
+
+    for j in axes(force, 1) # Iterate over agents
+        # Entries of Fid of disconnected agents are 0 by default
+        @show w_i
+        @info "The neighbors of $j are $(nzrange(A, j))"
+        agent = view(X, j, :)
+        neighbors = nzrange(A, j)
+
+        if length(neighbors) == 0
+            # If (col) j had no neighbors, the j-th row of Wij will be zeros
+            view(w_i, j) .= one(T)
+        end
+
+        # Exploit CSC sparse structure to efficiently explore the network
+        for ii in neighbors
+            i = rows[ii]
+            neighbor = view(X, i, :)
+            Dij = view(Dijd, i, j, :)
+            @. Dij = neighbor - agent
+
+            # Filling Wij in the same loop
+            # FIXME: This norm is too slow. Either unroll (prev line) or use SVector
+            w = φ(norm(Dij))
+            view(Wij, i, j) .= w
+            view(w_i, i) .= w_i[i] + w # FIXME: I haven't accounted for this in the theory
+        end
+    end
+    # row-normalize W to get 1/sum(W[i, j] for j)
+    view(Wij, :, :) .= view(Wij, :, :) ./ w_i
+    # Calculate the attraction force per dimension with Einstein sum notation
+    force .= ein"ijd,ij -> id"(Dijd, Wij)
 end
 
 function AgAg_attraction(omp::OpinionModelProblem{T}; φ=x -> exp(-x)) where {T}

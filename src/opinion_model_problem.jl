@@ -70,8 +70,10 @@ Base.iterate(p::ModelParams, ::Val{:γ}) = (p.γ, Val(:Γ))
 Base.iterate(p::ModelParams, ::Val{:Γ}) = (p.Γ, Val(:done))
 Base.iterate(p::ModelParams, ::Val{:done}) = nothing
 
-# Implementing networks as either bit arrays or sparse arrays
-const AdjMatrix{T} = Union{BitMatrix,SparseMatrixCSC{T}}
+# Implementing networks as either bit arrays or sparse arrays, or views of either
+const BitOrViewMatrix = Union{BitMatrix, SubArray{Bool,2,BitMatrix, Tuple{Base.Slice{Base.OneTo{Int}}, Int}, true}}
+const SparseOrViewMatrix{T} = Union{SparseMatrixCSC{T}, SubArray{T, 2, <:AbstractSparseMatrix, Tuple{Base.Slice{Base.OneTo{Int}}, Int}, false}}
+const AdjMatrix{T} = Union{BitOrViewMatrix, SparseOrViewMatrix{T}}
 
 """
 Represents a `D`-dimensional opinion dynamics problem with specific `ModelParams`. See
@@ -140,7 +142,7 @@ struct OpinionModelProblem{T<:AbstractFloat,D}
 
         issymmetric(A) || throw(ArgumentError("Matrix A is not symmetric"))
 
-        X = sortslices(X; dims=1)
+        # X = sortslices(X; dims=1)
         return new{T,D}(p, domain, X, Y, Z, A, B, C)
     end
 end

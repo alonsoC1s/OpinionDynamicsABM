@@ -39,6 +39,7 @@ function simulate!(omp::OpinionModelProblem{T,D};
     rC[:, :, begin] = C
 
     # Reusable arrays for forces, distances and weights
+    # FIXME: Reusable arrays will be sparse whenever A is
     FA = similar(X)
     Ftmp = similar(FA)
     Dijd = similar(X, n, n, D)

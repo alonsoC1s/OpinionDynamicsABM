@@ -1,5 +1,6 @@
 module TestSDEFunctions
 using Test, OpinionDynamicsABM, ReferenceTests
+using SparseArrays
 
 @testset "Force & Drift functions" begin
     fixed_seed = 210624
@@ -83,12 +84,23 @@ end
 
         ##
         I, D = size(X)
-        J = size(X, 1) # Cheating. This only works for fully connected A
+        J = size(X, 1)
         Fid = similar(X)
         Dijd = zeros(I, J, D)
         Wij = zeros(I, J)
 
-        OpinionDynamicsABM.AgAg_attraction!(Fid, Dijd, Wij, X, A)
+        AgAg_attraction!(Fid, Dijd, Wij, X, A)
+        @test Fid == ref_Force
+        @test Dijd == ref_Dijd
+        @test Wij == ref_Wij
+
+
+        ## Testing with networks as sparse arrays
+        sA = blockdiag(sparse(ones(3, 3)), sparse(ones(3,3)))
+        Fid = similar(X)
+        Dijd = zeros(I, J, D)
+        Wij = zeros(I, J)
+        AgAg_attraction!(Fid, Dijd, Wij, X, sA)
         @test Fid == ref_Force
         @test Dijd == ref_Dijd
         @test Wij == ref_Wij
