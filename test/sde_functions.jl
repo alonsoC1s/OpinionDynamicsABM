@@ -12,10 +12,13 @@ using SparseArrays
     agent_force = OpinionDynamicsABM.AgAg_attraction(X, A)
     @test_reference "reftest-files/ag_ag_forces.npz" agent_force by = isapprox
 
-    media_force = OpinionDynamicsABM.MedAg_attraction(X, Y, B)
+    agent_force_sparse = AgAg_attraction(X, sparse(Float64.(A)))
+    @test_reference "reftest-files/ag_ag_forces.npz" agent_force_sparse by = isapprox
+
+    media_force = MedAg_attraction(X, Y, B)
     @test_reference "reftest-files/me_ag_forces.npz" media_force by = isapprox
 
-    influ_force = OpinionDynamicsABM.InfAg_attraction(X, Z, C)
+    influ_force = InfAg_attraction(X, Z, C)
     @test_reference "reftest-files/if_ag_forces.npz" influ_force by = isapprox
 
     agent_drift = OpinionDynamicsABM.agent_drift(X, Y, Z, A, B, C, a, b, c)
@@ -53,7 +56,7 @@ end
     a, b, c = omp.p.a, omp.p.b, omp.p.c
 
     # Only testing things that depend on the non-full network
-    agent_force = OpinionDynamicsABM.AgAg_attraction(X, A)
+    agent_force = AgAg_attraction(X, A)
     @test_reference "reftest-files/nonfull/ag_ag_forces.npz" agent_force by = isapprox
 
     agent_drift = OpinionDynamicsABM.agent_drift(X, Y, Z, A, B, C, a, b, c)
@@ -104,6 +107,10 @@ end
         @test Fid == ref_Force
         @test Dijd == ref_Dijd
         @test Wij == ref_Wij
+    end
+
+    @testset "Networks with lonely agents" begin
+        # FIXME: Add tests
     end
 end
 end

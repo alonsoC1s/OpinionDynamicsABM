@@ -75,8 +75,7 @@ function AgAg_attraction!(force, Dijd, Wij, X::AbstractArray{T}, A; φ=x -> exp(
 end
 
 # Version specialized on abstract array version of the adjacency matrix
-function AgAg_attraction!(force, Dijd, Wij, X::AbstractArray{T},
-                          A::SparseOrViewMatrix{T};
+function AgAg_attraction!(force, Dijd, Wij, X::AbstractArray{T}, A::SparseOrViewMatrix{T};
                           φ=x -> exp(-x)) where {T}
     # Resetting buffers. fill! is calls an optimized version for sparse  arrays like these
     fill!(force, zero(T)) # Resetting to 0 is crucial
@@ -90,8 +89,6 @@ function AgAg_attraction!(force, Dijd, Wij, X::AbstractArray{T},
 
     for j in axes(force, 1) # Iterate over agents
         # Entries of Fid of disconnected agents are 0 by default
-        @show w_i
-        @info "The neighbors of $j are $(nzrange(A, j))"
         agent = view(X, j, :)
         neighbors = nzrange(A, j)
 
@@ -105,7 +102,7 @@ function AgAg_attraction!(force, Dijd, Wij, X::AbstractArray{T},
             i = rows[ii]
             neighbor = view(X, i, :)
             Dij = view(Dijd, i, j, :)
-            @. Dij = neighbor - agent
+            @. Dij = agent - neighbor # Iterating by cols requires this change in order
 
             # Filling Wij in the same loop
             # FIXME: This norm is too slow. Either unroll (prev line) or use SVector
