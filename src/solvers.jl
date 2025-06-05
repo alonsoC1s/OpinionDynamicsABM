@@ -80,7 +80,7 @@ function simulate!(omp::OpinionModelProblem{T,D};
         R = view(rR, :, :, i)
         view(rC, :, :, i + 1) .= switch_influencer(C, X, Z, R, dt)
 
-        if control && i >= 100
+        if control && i >= 10
             # Modify Agent-Agent interaction network
             # A .= _ag_ag_echo_chamber(BitMatrix(rC[:, :, i + 1]))
             fill!(A, zero(T))
