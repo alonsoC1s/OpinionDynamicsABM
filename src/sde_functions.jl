@@ -322,6 +322,13 @@ function followership_ratings(B::BitMatrix, C)
     return R
 end
 
+function influencer_switch_rates(X::A, Z::A, B, C, η::Float64;
+                                 ψ=x -> exp_fast(-x), r=relu) where {T,A<:AbstractArray{T}}
+    Rates = zeros(T, size(X, 1), size(Z, 1))
+    influencer_switch_rates!(Rates, X, Z, B, C, η; ψ, r)
+    return Rates
+end
+
 @doc raw"""
     influencer_switch_rates(X, Z, B, C, η; ψ = x -> exp(-x), r = relu)
 
@@ -333,8 +340,8 @@ same as ``Λ_{m}^{→l}``, defined as:
 \frac{n_{m,\ell}(t)}{\sum_{m^\prime = 1}^{M} n_{m^\prime, \ell} (t) } \right).
 ```
 """
-function influencer_switch_rates(X::T, Z::T, B, C, η::Float64; ψ=x -> exp(-x),
-                                 r=relu) where {T<:AbstractArray}
+function influencer_switch_rates!(Ril, X::A, Z::A, B, C, η::Float64;
+                                  ψ=x -> exp_fast(-x), r=relu) where {T,A<:AbstractArray{T}}
 
     # Compute the followership rate for media and influencers
     rate_m_l = followership_ratings(B, C)
@@ -344,21 +351,20 @@ function influencer_switch_rates(X::T, Z::T, B, C, η::Float64; ψ=x -> exp(-x),
     struct_similarity = rate_m_l ./ sum(rate_m_l; dims=1)
 
     # Computing distances of each individual to the influencers
-    D = zeros(size(X, 1), size(Z, 1))
+    D = zeros(T, size(X, 1), size(Z, 1))
     for (i, agent_i) in pairs(eachrow(X))
         for (l, influencer_l) in pairs(eachrow(Z))
-            D[i, l] = ψ(norm(agent_i - influencer_l))
+            D[i, l] = ψ(norm(agent_i - influencer_l)) # FIXME: Eliminate broadcast
         end
     end
 
     # Calculating switching rate based on eq. (6)
-    R = zeros(size(X, 1), size(Z, 1))
     for (j, agentj_media) in pairs(eachrow(B))
         m = findfirst(agentj_media)
-        R[j, :] = η .* D[j, :] .* r.(struct_similarity[m, :])
+        Ril[j, :] = η .* D[j, :] .* r.(struct_similarity[m, :]) # FIXME: Problematic line.
     end
 
-    return R
+    return nothing
 end
 
 """

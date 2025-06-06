@@ -44,6 +44,7 @@ function simulate!(omp::OpinionModelProblem{T,D};
     Ftmp = similar(FA)
     Dijd = similar(X, n, n, D)
     Wij = similar(X, n, n)
+    RA = similar(X, n, L)
 
     # Solve with Euler-Maruyama
     t_points = 1:(Nt - 1)
@@ -77,8 +78,8 @@ function simulate!(omp::OpinionModelProblem{T,D};
 
         # Change influencers
         # FIXME: Takes 18% of loop time
-        rates = influencer_switch_rates(X, Z, B, C, η)
-        rR[:, :, i] .= rates
+        influencer_switch_rates!(RA, X, Z, B, C, η)
+        rR[:, :, i] .= RA
         R = view(rR, :, :, i)
         view(rC, :, :, i + 1) .= switch_influencer(C, X, Z, R, dt)
 
@@ -91,7 +92,7 @@ function simulate!(omp::OpinionModelProblem{T,D};
 
         # Record changes to Agent-Agent adj matrix
         # Takes 9% of loop time for some reason
-        view(rA, :, :, i+1) .= A
+        view(rA, :, :, i + 1) .= A
     end
 
     solver_meta = BespokeSolver(collect(range(zero(T); step=dt, length=Nt)))
