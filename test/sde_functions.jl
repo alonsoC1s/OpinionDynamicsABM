@@ -76,7 +76,7 @@ end
         ref_Dijd[4:6, 4:6, 1] .= dist_block
         ref_Wij = zeros(6, 6)
         w_block = [1 exp(-1) exp(-2); exp(-1) 1 exp(-1); exp(-2) exp(-1) 1]
-        normalizers = [1+exp(-1)+exp(-2); 1+2*exp(-1); 1+exp(-1)+exp(-2)]
+        normalizers = [1 + exp(-1) + exp(-2); 1 + 2 * exp(-1); 1 + exp(-1) + exp(-2)]
         w_block .= w_block ./ normalizers
         ref_Wij[1:3, 1:3] .= w_block
         ref_Wij[4:6, 4:6] .= w_block
@@ -95,18 +95,17 @@ end
         AgAg_attraction!(Fid, Dijd, Wij, X, A)
         @test Fid == ref_Force
         @test Dijd == ref_Dijd
-        @test Wij == ref_Wij
-
+        @test Wij ≈ ref_Wij # Important. We use exp_fast
 
         ## Testing with networks as sparse arrays
-        sA = blockdiag(sparse(ones(3, 3)), sparse(ones(3,3)))
+        sA = blockdiag(sparse(ones(3, 3)), sparse(ones(3, 3)))
         Fid = similar(X)
         Dijd = zeros(I, J, D)
         Wij = zeros(I, J)
         AgAg_attraction!(Fid, Dijd, Wij, X, sA)
         @test Fid == ref_Force
         @test Dijd == ref_Dijd
-        @test Wij == ref_Wij
+        @test Wij ≈ ref_Wij # Important. We use exp_fast
     end
 
     @testset "Networks with lonely agents" begin

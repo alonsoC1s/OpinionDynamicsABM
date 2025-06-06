@@ -1,3 +1,4 @@
+import Base.Math: exp_fast
 
 # TODO: This could perhaps be optimized even further. One of the possibly good ideas would
 # be to allocate the forces vector once at the E-M solver level and pass a view to the
@@ -38,7 +39,7 @@ end
 #                           A::SubArray{Bool,D,BitArray{3},I,L};
 #                           φ=x -> exp(-x)) where {T,D,I,L}
 function AgAg_attraction!(force, Dijd, Wij, X::AbstractArray{T}, A;
-                          φ=x -> exp(-x)) where {T}
+                          φ=x -> exp_fast(-x)) where {T}
     # Resetting buffers. Force can be left as-is, every entry is guaranteed to be overwritten.
     fill!(Dijd, zero(T))
     fill!(Wij, zero(T))
@@ -80,7 +81,7 @@ end
 
 # Version specialized on abstract array version of the adjacency matrix
 function AgAg_attraction!(force, Dijd, Wij, X::AbstractArray{T}, A::SparseOrViewMatrix{T};
-                          φ=x -> exp(-x)) where {T}
+                          φ=x -> exp_fast(-x)) where {T}
     # Resetting buffers. fill! is calls an optimized version for sparse  arrays like these
     fill!(force, zero(T)) # Resetting to 0 is crucial
     fill!(Dijd, zero(T))
@@ -91,7 +92,7 @@ function AgAg_attraction!(force, Dijd, Wij, X::AbstractArray{T}, A::SparseOrView
     vals = nonzeros(A)
     w_i = zeros(T, size(Wij, 1))
 
-    for j in axes(force, 1) # Iterate over agents
+    @inbounds for j in axes(force, 1) # Iterate over agents
         # Entries of Fid of disconnected agents are 0 by default
         agent = view(X, j, :)
         neighbors = nzrange(A, j)
@@ -102,11 +103,11 @@ function AgAg_attraction!(force, Dijd, Wij, X::AbstractArray{T}, A::SparseOrView
         end
 
         # Exploit CSC sparse structure to efficiently explore the network
-        for ii in neighbors
+        @inbounds for ii in neighbors
             i = rows[ii]
             norm_accumulator = zero(T)
             neighbor = view(X, i, :)
-            @inbounds for d in axes(Dijd, 3)
+            @inbounds @simd for d in axes(Dijd, 3)
                 dist_d = agent[d] - neighbor[d]
                 view(Dijd, i, j, d) .= dist_d
                 norm_accumulator += dist_d^2
@@ -155,7 +156,7 @@ end
 function MedAg_attraction!(Force, X, M, B)
     for i in axes(X, 1)
         media_idx = findfirst(B[i, :])
-        Force[i, :] = M[media_idx, :] - X[i, :]
+        view(Force, i, :) .= view(M, media_idx, :) .- view(X, i, :)
     end
 end
 
@@ -185,9 +186,8 @@ end
 
 function InfAg_attraction!(Force, X, Z, C)
     for i in axes(X, 1)
-        # force[i, :] = sum(C[i, m] * (Z[m, :] - X[i, :]) for m = axes(C, 2)) # ./ count(C[i, :])
         influencer_idx = findfirst(C[i, :])
-        Force[i, :] = Z[influencer_idx, :] - X[i, :]
+        view(Force, i, :) .= view(Z, influencer_idx, :) .- view(X, i, :)
     end
 end
 

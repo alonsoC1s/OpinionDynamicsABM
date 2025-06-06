@@ -76,6 +76,7 @@ function simulate!(omp::OpinionModelProblem{T,D};
         rZ[:, :, i + 1] .= Z + dt * FI + (σ̂ / γ) * sqrt(dt) * randn(L, D)
 
         # Change influencers
+        # FIXME: Takes 18% of loop time
         rates = influencer_switch_rates(X, Z, B, C, η)
         rR[:, :, i] .= rates
         R = view(rR, :, :, i)
@@ -89,7 +90,8 @@ function simulate!(omp::OpinionModelProblem{T,D};
         end
 
         # Record changes to Agent-Agent adj matrix
-        rA[:, :, i + 1] .= A
+        # Takes 9% of loop time for some reason
+        view(rA, :, :, i+1) .= A
     end
 
     solver_meta = BespokeSolver(collect(range(zero(T); step=dt, length=Nt)))
