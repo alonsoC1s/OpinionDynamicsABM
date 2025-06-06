@@ -37,7 +37,8 @@ end
 # function AgAg_attraction!(force, Dijd, Wij, X::AbstractArray{T},
 #                           A::SubArray{Bool,D,BitArray{3},I,L};
 #                           φ=x -> exp(-x)) where {T,D,I,L}
-function AgAg_attraction!(force, Dijd, Wij, X::AbstractArray{T}, A; φ=x -> exp(-x)) where {T}
+function AgAg_attraction!(force, Dijd, Wij, X::AbstractArray{T}, A;
+                          φ=x -> exp(-x)) where {T}
     # Resetting buffers. Force can be left as-is, every entry is guaranteed to be overwritten.
     fill!(Dijd, zero(T))
     fill!(Wij, zero(T))
@@ -55,13 +56,18 @@ function AgAg_attraction!(force, Dijd, Wij, X::AbstractArray{T}, A; φ=x -> exp(
 
         # Distance between agent and neighbor
         @inbounds for j in neighbors # |neighbors| <= |J| so no index-out-of-bounds
+            norm_accumulator = zero(T)
             neighbor = view(X, j, :)
-            Dij = view(Dijd, i, j, :)
-            @. Dij = neighbor - agent
+            # Dij = view(Dijd, i, j, :)
+            @inbounds for d in axes(Dijd, 3)
+                # @. Dij = neighbor - agent
+                dist_d = neighbor[d] - agent[d]
+                view(Dijd, i, j, d) .= dist_d
+                norm_accumulator += dist_d^2
+            end
 
             # Filling Wij in the same loop
-            # FIXME: This norm is too slow. Either unroll (prev line) or use SVector
-            w = φ(norm(Dij))
+            w = φ(sqrt(norm_accumulator))
             view(Wij, i, j) .= w
             normalization_constant += w # FIXME: I haven't accounted for this in the theory
         end
@@ -71,7 +77,7 @@ function AgAg_attraction!(force, Dijd, Wij, X::AbstractArray{T}, A; φ=x -> exp(
     end
 
     # Calculate the attraction force per dimension with Einstein sum notation
-    force .= ein"ijd,ij -> id"(Dijd, Wij)
+    return force .= ein"ijd,ij -> id"(Dijd, Wij)
 end
 
 # Version specialized on abstract array version of the adjacency matrix
@@ -100,13 +106,17 @@ function AgAg_attraction!(force, Dijd, Wij, X::AbstractArray{T}, A::SparseOrView
         # Exploit CSC sparse structure to efficiently explore the network
         for ii in neighbors
             i = rows[ii]
+            norm_accumulator = zero(T)
             neighbor = view(X, i, :)
-            Dij = view(Dijd, i, j, :)
-            @. Dij = agent - neighbor # Iterating by cols requires this change in order
+            @inbounds for d in axes(Dijd, 3)
+                dist_d = agent[d] - neighbor[d]
+                view(Dijd, i, j, d) .= dist_d
+                norm_accumulator += dist_d^2
+            end
 
             # Filling Wij in the same loop
             # FIXME: This norm is too slow. Either unroll (prev line) or use SVector
-            w = φ(norm(Dij))
+            w = φ(sqrt(norm_accumulator))
             view(Wij, i, j) .= w
             view(w_i, i) .= w_i[i] + w # FIXME: I haven't accounted for this in the theory
         end
@@ -114,7 +124,7 @@ function AgAg_attraction!(force, Dijd, Wij, X::AbstractArray{T}, A::SparseOrView
     # row-normalize W to get 1/sum(W[i, j] for j)
     view(Wij, :, :) .= view(Wij, :, :) ./ w_i
     # Calculate the attraction force per dimension with Einstein sum notation
-    force .= ein"ijd,ij -> id"(Dijd, Wij)
+    return force .= ein"ijd,ij -> id"(Dijd, Wij)
 end
 
 function AgAg_attraction(omp::OpinionModelProblem{T}; φ=x -> exp(-x)) where {T}
@@ -244,7 +254,7 @@ function agent_drift!(Force, Ftmp, Dijd, Wij, X, Y, Z, A, B, C, a, b, c)
     Force .+= b .* Ftmp
 
     InfAg_attraction!(Ftmp, X, Z, C)
-    Force .+= c .* Ftmp
+    return Force .+= c .* Ftmp
 
     # Force .= a * Force + b * MedAg_attraction(X, Y, B) + c * InfAg_attraction(X, Z, C)
 end
