@@ -74,7 +74,8 @@ function AgAg_attraction!(force, Dijd, Wij, X::AbstractArray{T}, A;
     end
 
     # Calculate the attraction force per dimension with Einstein sum notation
-    return force .= ein"ijd,ij -> id"(Dijd, Wij)
+    force .= ein"ijd,ij -> id"(Dijd, Wij)
+    return nothing
 end
 
 # Version specialized on abstract array version of the adjacency matrix
@@ -120,7 +121,8 @@ function AgAg_attraction!(force, Dijd, Wij, X::AbstractArray{T}, A::SparseOrView
     # row-normalize W to get 1/sum(W[i, j] for j)
     view(Wij, :, :) .= view(Wij, :, :) ./ w_i
     # Calculate the attraction force per dimension with Einstein sum notation
-    return force .= ein"ijd,ij -> id"(Dijd, Wij)
+    force .= ein"ijd,ij -> id"(Dijd, Wij)
+    return nothing
 end
 
 function AgAg_attraction(omp::OpinionModelProblem{T}; φ=x -> exp(-x)) where {T}
