@@ -49,7 +49,6 @@ function AgAg_attraction!(force, Dijd, Wij, X::AbstractArray{T}, A;
         normalization_constant = zero(T)
 
         if isempty(neighbors)
-            # view(force, i, :) .= zeros(T, 1, D)
             fill!(view(force, i, :), zero(T))
             continue
         end
@@ -58,9 +57,7 @@ function AgAg_attraction!(force, Dijd, Wij, X::AbstractArray{T}, A;
         @inbounds for j in neighbors # |neighbors| <= |J| so no index-out-of-bounds
             norm_accumulator = zero(T)
             neighbor = view(X, j, :)
-            # Dij = view(Dijd, i, j, :)
             @inbounds for d in axes(Dijd, 3)
-                # @. Dij = neighbor - agent
                 dist_d = neighbor[d] - agent[d]
                 view(Dijd, i, j, d) .= dist_d
                 norm_accumulator += dist_d^2
@@ -115,7 +112,6 @@ function AgAg_attraction!(force, Dijd, Wij, X::AbstractArray{T}, A::SparseOrView
             end
 
             # Filling Wij in the same loop
-            # FIXME: This norm is too slow. Either unroll (prev line) or use SVector
             w = φ(sqrt(norm_accumulator))
             view(Wij, i, j) .= w
             view(w_i, i) .= w_i[i] + w # FIXME: I haven't accounted for this in the theory
