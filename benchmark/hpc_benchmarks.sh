@@ -18,12 +18,12 @@ echo "\n\n\n"
 # -r $(git log --pretty=format:'%h' -n 7 | tr '\n' ',') \
 
 /scratch/htc/amartine/julia/bin/benchpkg \
-    -r vUseFill,vReuseBuffers,vTmpBuffer,v@inbounds,vNoNorm,vNoReturn,vExpFast \
+    -r vUseFill,vReuseBuffers,vTmpBuffer,v@inbounds,vNoNorm,vNoReturn,vExpFast,vSwitchR,v@tullio \
     -o tmp/benchresults \
     --exeflags="--threads auto -O3" \
     --tune
 
 /scratch/htc/amartine/julia/bin/benchpkgplot OpinionDynamicsABM \
-    -r vUseFill,vReuseBuffers,vTmpBuffer,v@inbounds,vNoNorm,vNoReturn,vExpFast \
+    -r vUseFill,vReuseBuffers,vTmpBuffer,v@inbounds,vNoNorm,vNoReturn,vExpFast,vSwitchR,v@tullio \
     -i tmp/benchresults \
     -o tmp/ \

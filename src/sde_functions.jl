@@ -75,7 +75,8 @@ function AgAg_attraction!(force, Dijd, Wij, X::AbstractArray{T}, A;
     end
 
     # Calculate the attraction force per dimension with Einstein sum notation
-    force .= ein"ijd,ij -> id"(Dijd, Wij)
+    # force .= ein"ijd,ij -> id"(Dijd, Wij)
+    @tullio force[i, d] = Dijd[i, j, d] * Wij[i, j]
     return nothing
 end
 
@@ -122,7 +123,8 @@ function AgAg_attraction!(force, Dijd, Wij, X::AbstractArray{T}, A::SparseOrView
     # row-normalize W to get 1/sum(W[i, j] for j)
     view(Wij, :, :) .= view(Wij, :, :) ./ w_i
     # Calculate the attraction force per dimension with Einstein sum notation
-    force .= ein"ijd,ij -> id"(Dijd, Wij)
+    # force .= ein"ijd,ij -> id"(Dijd, Wij)
+    @tullio force[i, d] = Dijd[i, j, d] * Wij[i, j]
     return nothing
 end
 
@@ -367,10 +369,10 @@ function influencer_switch_rates!(Ril, X::A, Z::A, B, C, η::Float64;
         # Ril[j, :] = η .* D[j, :] .* r.(struct_similarity[m, :]) # FIXME: Problematic line.
 
         for i in eachindex(Ril[j, :])
-            # temp1 = η * D[j, i] 
+            # temp1 = η * D[j, i]
             # temp2 = temp1 * r(struct_similarity[m, i])
             # Ril[j, i] = temp1 * temp2
-            temp1 = η * D[j, i] 
+            temp1 = η * D[j, i]
             s_mi = struct_similarity[m, i]
             temp2 = r(s_mi)
             Ril[j, i] = temp1 * temp2

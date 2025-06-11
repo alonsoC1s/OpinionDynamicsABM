@@ -15,11 +15,13 @@ SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
 SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 StochasticDiffEq = "789caeaf-c7a9-5a7d-9973-96adeb23e2a0"
+Tullio = "bc48ee85-29a4-5162-ae0b-a64e1601d4bc"
 
 [compat]
 SciMLBase = "2.89.0"
 SparseArrays = "1.11.0"
 StochasticDiffEq = "6.78.0"
+Tullio = "0.3.8"
 julia = "1.6.7"
 
 [extras]
