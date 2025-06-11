@@ -12,15 +12,15 @@ SUITE["abm_simulation"]["agent-agent attraction"] = @benchmarkable begin
     AgAg_attraction(X, A)
 end
 
-SUITE["amb_simulation"]["influencer switch rates"] = @benchmarkable begin
-    setup = (Ril = similar(omp.X, omp.p.n, omp.p.L);
-             X = copy(omp.X);
-             Z = copy(omp.Z);
-             B = copy(omp.B);
-             C = copy(omp.C);
-             η = omp.p.η)
-    OpinionDynamicsABM.influencer_switch_rates!(Ril, X, Z, B, C, η)
-end
+# SUITE["amb_simulation"]["influencer switch rates"] = @benchmarkable begin
+#     setup = (Ril = similar(omp.X, omp.p.n, omp.p.L);
+#              X = copy(omp.X);
+#              Z = copy(omp.Z);
+#              B = copy(omp.B);
+#              C = copy(omp.C);
+#              η = omp.p.η)
+#     OpinionDynamicsABM.influencer_switch_rates!(Ril, X, Z, B, C, η)
+# end
 
 SUITE["abm_simulation"]["full simulation"] = @benchmarkable begin
     setup = (abm = deepcopy(omp))

@@ -313,7 +313,7 @@ function followership_ratings(B::BitMatrix, C)
     n, M = size(B)
     L = size(C, 2)
 
-    R = zeros(M, L)
+    R = zeros(Float64, M, L)
     for m in 1:M
         audience_m = findall(B[:, m])
         R[m, :] = count(C[audience_m, :]; dims=1) ./ n
@@ -361,7 +361,20 @@ function influencer_switch_rates!(Ril, X::A, Z::A, B, C, η::Float64;
     # Calculating switching rate based on eq. (6)
     for (j, agentj_media) in pairs(eachrow(B))
         m = findfirst(agentj_media)
-        Ril[j, :] = η .* D[j, :] .* r.(struct_similarity[m, :]) # FIXME: Problematic line.
+        # row_r = view(Ril, j, :)
+        # row_d = view(D, j, :)
+        # row_s = view(struct_similarity, m, :)
+        # Ril[j, :] = η .* D[j, :] .* r.(struct_similarity[m, :]) # FIXME: Problematic line.
+
+        for i in eachindex(Ril[j, :])
+            # temp1 = η * D[j, i] 
+            # temp2 = temp1 * r(struct_similarity[m, i])
+            # Ril[j, i] = temp1 * temp2
+            temp1 = η * D[j, i] 
+            s_mi = struct_similarity[m, i]
+            temp2 = r(s_mi)
+            Ril[j, i] = temp1 * temp2
+        end
     end
 
     return nothing
