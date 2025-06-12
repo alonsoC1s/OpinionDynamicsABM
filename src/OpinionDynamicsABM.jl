@@ -1,7 +1,7 @@
 module OpinionDynamicsABM
 
-using LinearAlgebra, Plots, Random, Distributions, Statistics, OMEinsum
-using SciMLBase, DiffEqCallbacks, StochasticDiffEq
+using LinearAlgebra, Plots, Random, Distributions, Statistics, SparseArrays
+using SciMLBase, DiffEqCallbacks, StochasticDiffEq, Tullio
 
 export _boolean_combinator,
        _orthantize,
@@ -9,13 +9,13 @@ export _boolean_combinator,
        OpinionModelProblem,
        ModelParams,
        AgAg_attraction,
+       AgAg_attraction!,
        InfAg_attraction,
        MedAg_attraction,
        simulate!,
        evolution,
        frame,
        evolve_compare,
-       time_rate_tensor,
        influencer_switch_rates,
        _ag_ag_echo_chamber,
        _media_network,

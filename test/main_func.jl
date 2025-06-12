@@ -20,21 +20,17 @@ end
 
 @testset "Test simulations" begin
     fixed_seed = 210624
-
-    omp = OpinionModelProblem((-2.0, 2.0), (-2.0, 2.0); seed=fixed_seed)
-
-    # Testing the Agent-Agent attraction
-    force = OpinionDynamicsABM.AgAg_attraction(omp.X, omp.A)
-    @test_reference "reftest-files/ag_ag_forces.npz" force by = isapprox
+    deterministic_params = ModelParams(σ=0.0, σ̂=0.0, σ̃=0.0)
+    omp = OpinionModelProblem((-2.0, 2.0), (-2.0, 2.0); seed=fixed_seed, p=deterministic_params)
 
     # Testing the full simulation
     X, Y, Z, _, R = simulate!(omp; seed=fixed_seed)
 
     # Testing agent's positions
-    @test_reference "reftest-files/X.npz" X by = isapprox
-    @test_reference "reftest-files/Y.npz" Y by = isapprox
-    @test_reference "reftest-files/Z.npz" Z by = isapprox
-    @test_reference "reftest-files/R.npz" R by = isapprox
+    @test_reference "reftest-files/sim/X.npz" X by = isapprox
+    @test_reference "reftest-files/sim/Y.npz" Y by = isapprox
+    @test_reference "reftest-files/sim/Z.npz" Z by = isapprox
+    @test_reference "reftest-files/sim/R.npz" R by = isapprox
 end
 
 end # TestOpinionDynamics

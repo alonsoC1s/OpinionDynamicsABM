@@ -49,7 +49,7 @@ function ModelParams(;
     return ModelParams(L, M, n, η, a, b, c, σ, σ̂, σ̃, γ, Γ)
 end
 
-function Base.show(io::IO, params::ModelParams)
+function Base.show(::IO, params::ModelParams)
     L, M, n, η, a, b, c, σ, σ̂, σ̃, γ, Γ = params
     return print("Opinion Model parameters: η=$(η), a=$(a), b=$(b), c=$(c), σ=$(σ), " *
                  "σ_hat=$(σ̂), σ_tilde=$(σ̃), γ=$(γ), Γ=$(Γ)")
@@ -69,6 +69,11 @@ Base.iterate(p::ModelParams, ::Val{:σ̃}) = (p.σ̃, Val(:γ))
 Base.iterate(p::ModelParams, ::Val{:γ}) = (p.γ, Val(:Γ))
 Base.iterate(p::ModelParams, ::Val{:Γ}) = (p.Γ, Val(:done))
 Base.iterate(p::ModelParams, ::Val{:done}) = nothing
+
+# Implementing networks as either bit arrays or sparse arrays, or views of either
+const BitOrViewMatrix = Union{BitMatrix, SubArray{Bool,2,BitMatrix, Tuple{Base.Slice{Base.OneTo{Int}}, Int}, true}}
+const SparseOrViewMatrix{T} = Union{SparseMatrixCSC{T}, SubArray{T, 2, <:AbstractSparseMatrix, Tuple{Base.Slice{Base.OneTo{Int}}, Int}, false}}
+const AdjMatrix{T} = Union{BitOrViewMatrix, SparseOrViewMatrix{T}}
 
 """
 Represents a `D`-dimensional opinion dynamics problem with specific `ModelParams`. See
@@ -126,20 +131,23 @@ struct OpinionModelProblem{T<:AbstractFloat,D}
     X::AbstractVecOrMat{T} # Agent coordinates
     Y::AbstractVecOrMat{T} # Media coordinates
     Z::AbstractVecOrMat{T} # Influencer coordinates
-    A::BitMatrix # Agent-Agent adjacency matrix
-    B::BitMatrix # Agent-Media adjacency matrix
-    C::BitMatrix # Agent-Influencer adjaceny matrix
+    A::AdjMatrix{T} # Agent-Agent adjacency matrix
+    B::AdjMatrix{T} # Agent-Media adjacency matrix
+    C::AdjMatrix{T} # Agent-Influencer adjaceny matrix
 
+    # FIXME: Implement internal constructor to enforce invariants like symmetry
     function OpinionModelProblem{T,D}(p, domain, X, Y, Z, A, B, C) where {T,D}
         any([A[i, i] for i in axes(A, 1)]) &&
             throw(ArgumentError("Agents have self-connections"))
 
         issymmetric(A) || throw(ArgumentError("Matrix A is not symmetric"))
+
+        # X = sortslices(X; dims=1)
         return new{T,D}(p, domain, X, Y, Z, A, B, C)
     end
 end
 
-function Base.show(io::IO, omp::OpinionModelProblem{T,D}) where {T,D}
+function Base.show(::IO, omp::OpinionModelProblem{T,D}) where {T,D}
     return print("""
                  $(D)-dimensional Agent Based Opinion Model with:
                  - $(omp.p.n) agents
@@ -155,12 +163,19 @@ Base.iterate(omp::OpinionModelProblem, ::Val{:I}) = (omp.Z, Val(:A))
 Base.iterate(omp::OpinionModelProblem, ::Val{:A}) = (omp.A, Val(:B))
 Base.iterate(omp::OpinionModelProblem, ::Val{:B}) = (omp.B, Val(:C))
 Base.iterate(omp::OpinionModelProblem, ::Val{:C}) = (omp.C, Val(:done))
-Base.iterate(omp::OpinionModelProblem, ::Val{:done}) = nothing
+Base.iterate(::OpinionModelProblem, ::Val{:done}) = nothing
+
+# function OpinionModelProblem(dom::Vararg{Tuple{Real,Real},D}; p=ModelParams(),
+#                              seed=MersenneTwister(),
+#                              AgAgNetF::Function=I -> trues(p.n, p.n),) where {D<:Real}
+#     @info "Promoting elements of domain tuples"
+#     throw(ErrorException("Mixed-type tuples are not yet supported"))
+#     # return OpinionModelProblem(promote(dom...), seed, AgAgNetF)
+# end
 
 function OpinionModelProblem(dom::Vararg{Tuple{T,T},D}; p=ModelParams(),
-                             seed=MersenneTwister(),
-                             AgAgNetF::Function=I -> fullyconnected_network(p.n)) where {D,
-                                                                                         T<:AbstractFloat}
+                             AgAgNetF::Function=I -> fullyconnected_network(p.n),
+                             seed=MersenneTwister()) where {D,T<:AbstractFloat}
     # We divide the domain into orthants, and each orthant has 1 influencer
     p.L != 2^D && throw(ArgumentError("Number of influencers has to be 2^dim"))
 
@@ -179,6 +194,7 @@ function OpinionModelProblem(dom::Vararg{Tuple{T,T},D}; p=ModelParams(),
 
     if D == 1
         X = vec(X)
+        I = vec(I)
     end
 
     return OpinionModelProblem{T,D}(X, I, C; p=p, dom=dom, AgAgNetF=AgAgNetF)
@@ -186,11 +202,11 @@ end
 
 function OpinionModelProblem{T,D}(X₀::AbstractArray{T},
                                   Z₀::AbstractArray{T},
-                                  C₀::BitMatrix;
+                                  C₀::AdjMatrix{T};
                                   p=ModelParams(; L=size(Z₀, 1), n=size(X₀, 1)),
-                                  dom::NTuple{D,Tuple{T,T}}=_array_bounds(X₀),
-                                  AgAgNetF::Function=I -> fullyconnected_network(p.n)) where {D,
-                                                                                              T<:AbstractFloat}
+                                  AgAgNetF::Function=I -> fullyconnected_network(p.n),
+                                  dom::NTuple{D,Tuple{T,T}}=_array_bounds(X₀)) where {D,
+                                                                                      T<:AbstractFloat}
     p.L != size(Z₀, 1) &&
         throw(ArgumentError("`influencers_init` defined more influencers than contemplated" *
                             "in the parameters $(p)"))
@@ -277,11 +293,11 @@ Base.iterate(oms::ModelSimulation, ::Val{:Y}) = (oms.Y, Val(:Z))
 Base.iterate(oms::ModelSimulation, ::Val{:Z}) = (oms.Z, Val(:C))
 Base.iterate(oms::ModelSimulation, ::Val{:C}) = (oms.C, Val(:R))
 Base.iterate(oms::ModelSimulation, ::Val{:R}) = (oms.R, Val(:done))
-Base.iterate(oms::ModelSimulation, ::Val{:done}) = nothing
+Base.iterate(::ModelSimulation, ::Val{:done}) = nothing
 
 Base.length(oms::ModelSimulation) = size(oms.X, 3)
-Base.eltype(oms::ModelSimulation{T,D,S}) where {T,D,S} = T
-solvtype(oms::ModelSimulation{T,D,S}) where {T,D,S} = S
+Base.eltype(::ModelSimulation{T,D,S}) where {T,D,S} = T
+solvtype(::ModelSimulation{T,D,S}) where {T,D,S} = S
 
 function ModelSimulation{T,D,DiffEqSolver}(sol::S,
                                            dom::NTuple{D,Tuple{T,T}},
@@ -370,10 +386,8 @@ end
 
 function Base.isapprox(s1::Sim,
                        s2::Sim;
-                       atol::Real=0,
-                       rtol::Real=atol > 0 ? 0 : √eps(T)) where {T,D,
-                                                                 Sim<:ModelSimulation{T,D,
-                                                                                      BespokeSolver}}
+                       rtol::Real=atol > 0 ? 0 : √eps(T),
+                       atol::Real=0) where {T,D,Sim<:ModelSimulation{T,D,BespokeSolver}}
     # Check maximum elementwise differences are below the tolerance
     ΔX = s1.X .- s2.X
     ΔY = s1.Y .- s2.Y
@@ -384,11 +398,8 @@ end
 
 function Base.isapprox(s1::SBe,
                        s2::SD;
-                       atol::Real=0,
-                       rtol::Real=atol > 0 ? 0 : √eps(T)) where {T,D,
-                                                                 SBe<:ModelSimulation{T,D,
-                                                                                      BespokeSolver},
-                                                                 SD<:ModelSimulation{T,D,
-                                                                                     DiffEqSolver}}
+                       rtol::Real=atol > 0 ? 0 : √eps(T),
+                       atol::Real=0) where {T,D,SBe<:ModelSimulation{T,D,BespokeSolver},
+                                            SD<:ModelSimulation{T,D,DiffEqSolver}}
     return Δ_isapprox(s1 - s2, atol, rtol)
 end

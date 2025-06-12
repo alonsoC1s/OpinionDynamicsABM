@@ -10,9 +10,15 @@ function simulate!(omp::OpinionModelProblem{T,D};
                    Nt=200,
                    dt=0.01,
                    seed=MersenneTwister(),
-                   echo_chamber::Bool=false) where {T,D}
+                   control::Bool=false) where {T,D}
     X, Y, Z, A, B, C = omp
     L, M, n, η, a, b, c, σ, σ̂, σ̃, γ, Γ = omp.p
+
+    # Detect early if an agent is not connected to any Media Outlets
+    if !(all(any(B; dims=2)))
+        throw(ErrorException("Model violation detected: An agent is disconnected from " *
+                             "all media outlets."))
+    end
 
     # Seeding the RNG
     Random.seed!(seed)
@@ -21,26 +27,45 @@ function simulate!(omp::OpinionModelProblem{T,D};
     rX = zeros(T, n, D, Nt)
     rY = zeros(T, M, D, Nt)
     rZ = zeros(T, L, D, Nt)
-    rC = BitArray{3}(undef, n, L, Nt)
-    # Jump rates can be left uninitialzied. Not defined for the last time step
-    rR = Array{T,3}(undef, n, L, Nt - 1)
+    rA = similar(A, n, n, Nt)
+    rC = similar(C, n, L, Nt)
+    # Jump rates can be left uninitialized. Not defined for the last time step
+    rR = similar(X, n, L, Nt - 1)
 
     rX[:, :, begin] = X
     rY[:, :, begin] = Y
     rZ[:, :, begin] = Z
+    rA[:, :, begin] = A
     rC[:, :, begin] = C
+
+    # Reusable arrays for forces, distances and weights
+    # FIXME: Reusable arrays will be sparse whenever A is
+    FA = similar(X)
+    Ftmp = similar(FA)
+    Dijd = similar(X, n, n, D)
+    Wij = similar(X, n, n)
+    RA = similar(X, n, L)
 
     # Solve with Euler-Maruyama
     t_points = 1:(Nt - 1)
-    for i in t_points
+    @inbounds for i in t_points
         X = view(rX, :, :, i)
         Y = view(rY, :, :, i)
         Z = view(rZ, :, :, i)
-        C = view(rC, :, :, i) |> BitMatrix
+        C = view(rC, :, :, i) # |> BitMatrix
+        A = view(rA, :, :, i)
+
+        ## Check network consistency
+        # Detect early if an agent doesn't follow any influencers
+        if !(all(any(C; dims=2)))
+            throw(ErrorException("Model violation detected: An Agent doesn't follow any  " *
+                                 "influencers"))
+        end
 
         # FIXME: Try using the dotted operators to fuse vectorized operations
         # Agents movement
-        FA = agent_drift(X, Y, Z, A, B, C, a, b, c)
+        agent_drift!(FA, Ftmp, Dijd, Wij, X, Y, Z, A, B, C, a, b, c)
+        # FA was mutated by previous line
         rX[:, :, i + 1] .= X + dt * FA + σ * sqrt(dt) * randn(n, D)
 
         # Media movements
@@ -52,15 +77,22 @@ function simulate!(omp::OpinionModelProblem{T,D};
         rZ[:, :, i + 1] .= Z + dt * FI + (σ̂ / γ) * sqrt(dt) * randn(L, D)
 
         # Change influencers
-        rates = influencer_switch_rates(X, Z, B, C, η)
-        rR[:, :, i] .= rates
+        # FIXME: Takes 18% of loop time
+        influencer_switch_rates!(RA, X, Z, B, C, η)
+        rR[:, :, i] .= RA
         R = view(rR, :, :, i)
         view(rC, :, :, i + 1) .= switch_influencer(C, X, Z, R, dt)
 
-        if echo_chamber
+        if control && i >= 10
             # Modify Agent-Agent interaction network
-            A .= _ag_ag_echo_chamber(BitMatrix(rC[:, :, i + 1]))
+            # A .= _ag_ag_echo_chamber(BitMatrix(rC[:, :, i + 1]))
+            fill!(A, zero(T))
+            # _antidiagonal!(A)
         end
+
+        # Record changes to Agent-Agent adj matrix
+        # Takes 9% of loop time for some reason
+        view(rA, :, :, i + 1) .= A
     end
 
     solver_meta = BespokeSolver(collect(range(zero(T); step=dt, length=Nt)))
@@ -137,7 +169,6 @@ influencer_switching_callback = DiscreteCallback(true_condition, influencer_swit
 save_C = function (u, t, integrator)
     return integrator.p.C
 end
-
 
 """
     build_sdeproblem(omp::OpinionModelProblem, tspan)

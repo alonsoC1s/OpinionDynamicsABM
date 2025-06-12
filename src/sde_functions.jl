@@ -1,3 +1,4 @@
+import Base.Math: exp_fast
 
 # TODO: This could perhaps be optimized even further. One of the possibly good ideas would
 # be to allocate the forces vector once at the E-M solver level and pass a view to the
@@ -20,40 +21,53 @@ w_{ij} = A_{ij} \, \varphi(\| x_j - x_t \|).
 ```
 The resulting row vectors are stored as rows of the matrix returned.
 """
-function AgAg_attraction(X::AbstractVecOrMat{T}, A::BitMatrix; φ=x -> exp(-x)) where {T}
-    I, D = size(X, 1), size(X, 2)
+function AgAg_attraction(X::AbstractArray{T}, A::AdjMatrix{T}; φ=x -> exp(-x)) where {T}
+    I, D = size(X)
     J = size(X, 1) # Cheating. This only works for fully connected A
 
-    # FIXME: These can be pre-allocated all the way up in the integrator. Perhaps even
-    # reusing the same array over and over.
-    # Pre allocating outputs
-    # force = similar(X)
-    force = zero(X)
-    # Dijd = similar(X, I, J, D)
+    # Pre allocating outputs. I can get away with not initializing force, not so with D, W.
+    force = similar(X)
     Dijd = zeros(I, J, D)
-    # Wij = similar(X, I, J)
     Wij = zeros(I, J)
 
-    for i in axes(force, 1) # Iterate over agents
+    AgAg_attraction!(force, Dijd, Wij, X, A; φ=φ)
+
+    return force
+end
+
+# function AgAg_attraction!(force, Dijd, Wij, X::AbstractArray{T},
+#                           A::SubArray{Bool,D,BitArray{3},I,L};
+#                           φ=x -> exp(-x)) where {T,D,I,L}
+function AgAg_attraction!(force, Dijd, Wij, X::AbstractArray{T}, A;
+                          φ=x -> exp_fast(-x)) where {T}
+    # Resetting buffers. Force can be left as-is, every entry is guaranteed to be overwritten.
+    fill!(Dijd, zero(T))
+    fill!(Wij, zero(T))
+
+    @inbounds for i in axes(force, 1) # Iterate over agents
         agent = view(X, i, :)
-        neighbors = findall(@view A[i, :])
+        neighbors = findall(view(A, i, :)) # FIXME: `neighbors` is being allcoated every loop
         normalization_constant = zero(T)
 
         if isempty(neighbors)
-            view(force, i, :) .= zeros(T, 1, D)
+            fill!(view(force, i, :), zero(T))
             continue
         end
 
         # Distance between agent and neighbor
-        for j in neighbors # |neighbors| <= |J| so no index-out-of-bounds
+        @inbounds for j in neighbors # |neighbors| <= |J| so no index-out-of-bounds
+            norm_accumulator = zero(T)
             neighbor = view(X, j, :)
-            Dij = view(Dijd, i, j, :)
-            Dij .= neighbor .- agent
+            @inbounds for d in axes(Dijd, 3)
+                dist_d = neighbor[d] - agent[d]
+                view(Dijd, i, j, d) .= dist_d
+                norm_accumulator += dist_d^2
+            end
 
             # Filling Wij in the same loop
-            w = φ(norm(Dij))
+            w = φ(sqrt(norm_accumulator))
             view(Wij, i, j) .= w
-            normalization_constant += w
+            normalization_constant += w # FIXME: I haven't accounted for this in the theory
         end
 
         # row-normalize W to get 1/sum(W[i, j] for j)
@@ -61,8 +75,57 @@ function AgAg_attraction(X::AbstractVecOrMat{T}, A::BitMatrix; φ=x -> exp(-x)) 
     end
 
     # Calculate the attraction force per dimension with Einstein sum notation
-    force .= ein"ijd,ij -> id"(Dijd, Wij)
-    return force
+    # force .= ein"ijd,ij -> id"(Dijd, Wij)
+    @tullio force[i, d] = Dijd[i, j, d] * Wij[i, j]
+    return nothing
+end
+
+# Version specialized on abstract array version of the adjacency matrix
+function AgAg_attraction!(force, Dijd, Wij, X::AbstractArray{T}, A::SparseOrViewMatrix{T};
+                          φ=x -> exp_fast(-x)) where {T}
+    # Resetting buffers. fill! is calls an optimized version for sparse  arrays like these
+    fill!(force, zero(T)) # Resetting to 0 is crucial
+    fill!(Dijd, zero(T))
+    fill!(Wij, zero(T))
+
+    # Look at the connection weight of all agents connected to agent_idx
+    rows = rowvals(A)
+    vals = nonzeros(A)
+    w_i = zeros(T, size(Wij, 1))
+
+    @inbounds for j in axes(force, 1) # Iterate over agents
+        # Entries of Fid of disconnected agents are 0 by default
+        agent = view(X, j, :)
+        neighbors = nzrange(A, j)
+
+        if length(neighbors) == 0
+            # If (col) j had no neighbors, the j-th row of Wij will be zeros
+            view(w_i, j) .= one(T)
+        end
+
+        # Exploit CSC sparse structure to efficiently explore the network
+        @inbounds for ii in neighbors
+            i = rows[ii]
+            norm_accumulator = zero(T)
+            neighbor = view(X, i, :)
+            @inbounds @simd for d in axes(Dijd, 3)
+                dist_d = agent[d] - neighbor[d]
+                view(Dijd, i, j, d) .= dist_d
+                norm_accumulator += dist_d^2
+            end
+
+            # Filling Wij in the same loop
+            w = φ(sqrt(norm_accumulator))
+            view(Wij, i, j) .= w
+            view(w_i, i) .= w_i[i] + w # FIXME: I haven't accounted for this in the theory
+        end
+    end
+    # row-normalize W to get 1/sum(W[i, j] for j)
+    view(Wij, :, :) .= view(Wij, :, :) ./ w_i
+    # Calculate the attraction force per dimension with Einstein sum notation
+    # force .= ein"ijd,ij -> id"(Dijd, Wij)
+    @tullio force[i, d] = Dijd[i, j, d] * Wij[i, j]
+    return nothing
 end
 
 function AgAg_attraction(omp::OpinionModelProblem{T}; φ=x -> exp(-x)) where {T}
@@ -81,26 +144,22 @@ Mathematically, the function computes,
 \sum_{m=1}^{M} B_{im} \, (y_m - x_i)
 ```
 """
-function MedAg_attraction(X::T, M::T, B::BitMatrix) where {T<:AbstractVecOrMat}
+function MedAg_attraction(X, M, B)
     force = similar(X)
-    # FIXME: Can be written even more compactly
-
-    # Detect early if an agent is not connected to any Media Outlets
-    if !(all(any(B; dims=2)))
-        throw(ErrorException("Model violation detected: An agent is disconnected from " *
-                             "all media outlets."))
-    end
-
-    for i in axes(X, 1)
-        media_idx = findfirst(B[i, :])
-        force[i, :] = M[media_idx, :] - X[i, :]
-    end
+    MedAg_attraction!(force, X, M, B)
 
     return force
 end
 
 function MedAg_attraction(omp::OpinionModelProblem)
     return MedAg_attraction(omp.X, omp.Y, omp.B)
+end
+
+function MedAg_attraction!(Force, X, M, B)
+    for i in axes(X, 1)
+        media_idx = findfirst(B[i, :])
+        view(Force, i, :) .= view(M, media_idx, :) .- view(X, i, :)
+    end
 end
 
 @doc raw"""
@@ -115,27 +174,23 @@ Mathematically, the function computes,
 \sum_{\ell=1}^{L} C_{i\ell} \, (z_m - x_i)
 ```
 """
-function InfAg_attraction(X::T, Z::T, C::BitMatrix) where {T<:AbstractVecOrMat}
+function InfAg_attraction(X, Z, C)
     force = similar(X)
-
-    # Detect early if an agent doesn't follow any influencers
-    if !(all(any(C; dims=2)))
-        throw(ErrorException("Model violation detected: An Agent doesn't follow any  " *
-                             "influencers"))
-    end
-
-    for i in axes(X, 1)
-        # force[i, :] = sum(C[i, m] * (Z[m, :] - X[i, :]) for m = axes(C, 2)) # ./ count(C[i, :])
-        influencer_idx = findfirst(C[i, :])
-        force[i, :] = Z[influencer_idx, :] - X[i, :]
-    end
+    InfAg_attraction!(force, X, Z, C)
 
     return force
 end
 
 function InfAg_attraction(omp::OpinionModelProblem)
-    X, Z, C = omp.X, omp.I, omp.AgInfNet
+    X, Z, C = omp.X, omp.Z, omp.C
     return InfAg_attraction(X, Z, C)
+end
+
+function InfAg_attraction!(Force, X, Z, C)
+    for i in axes(X, 1)
+        influencer_idx = findfirst(C[i, :])
+        view(Force, i, :) .= view(Z, influencer_idx, :) .- view(X, i, :)
+    end
 end
 
 """
@@ -144,7 +199,7 @@ end
 Calculates the center of mass of the agents connected to the same media or influencer as
 determined by the adjacency matrix `Network`.
 """
-function follower_average(X::AbstractVecOrMat, Network::BitMatrix)
+function follower_average(X::AbstractArray, Network)
     mass_centers = zeros(size(Network, 2), size(X, 2))
 
     # Detect early if one outlet/influencer has lost all followers i.e a some column is empty
@@ -184,11 +239,24 @@ The function corresponds to the drift function ``F_i`` of the SDE
 dx_i(t) = F_i (x, y, z, t) \, dt + \sigma \, dW_i (t).
 ```
 """
-function agent_drift(X::T, Y::T, Z::T, A::Bm, B::Bm, C::Bm,
-                     a, b, c) where {T<:AbstractVecOrMat,Bm<:BitMatrix}
+function agent_drift(X, Y, Z, A, B, C, a, b, c)
     return a * AgAg_attraction(X, A) +
            b * MedAg_attraction(X, Y, B) +
            c * InfAg_attraction(X, Z, C)
+end
+
+function agent_drift!(Force, Ftmp, Dijd, Wij, X, Y, Z, A, B, C, a, b, c)
+    # Aggregate results into `Force` reusing `Ftmp` as buffer
+    AgAg_attraction!(Ftmp, Dijd, Wij, X, A)
+    Force .= a .* Ftmp
+
+    MedAg_attraction!(Ftmp, X, Y, B)
+    Force .+= b .* Ftmp
+
+    InfAg_attraction!(Ftmp, X, Z, C)
+    return Force .+= c .* Ftmp
+
+    # Force .= a * Force + b * MedAg_attraction(X, Y, B) + c * InfAg_attraction(X, Z, C)
 end
 
 @doc raw"""
@@ -202,8 +270,7 @@ the following SDE:
 ```
 where ``\widetilde{x_m}`` is the average opinion of the media outlet ``m`` followers.
 """
-function media_drift(X::T, Y::T, B::Bm, Γ;
-                     f=identity) where {T<:AbstractVecOrMat,Bm<:BitMatrix}
+function media_drift(X::T, Y::T, B, Γ; f=identity) where {T<:AbstractArray}
     f_full(x) = ismissing(x) ? 0 : f(x) # FIXME: Use missings.jl
     force = similar(Y)
     x_tilde = follower_average(X, B)
@@ -223,8 +290,8 @@ Calculates the drift force action on influencers, i.e. the drift function of the
 where ``\widehat{x_{\ell}}`` is the average opinion of the ``\ell`` influencer's
 followers.
 """
-function influencer_drift(X::T, Z::T, C::Bm, γ;
-                          g=identity) where {T<:AbstractVecOrMat,Bm<:BitMatrix}
+function influencer_drift(X::T, Z::T, C, γ;
+                          g=identity) where {T<:AbstractArray}
     g_full(x) = ismissing(x) ? 0 : g(x) # FIXME: Use missings.jl
     force = similar(Z)
     x_hat = follower_average(X, C)
@@ -244,17 +311,24 @@ agents that follows ``m`` and ``l``.
 - `B::BitMatrix`: Adjacency matrix of the agents to the media outlets
 - `C::BitMatrix`: Adjacency matrix of the agents to the influencers
 """
-function followership_ratings(B::BitMatrix, C::BitMatrix)
+function followership_ratings(B::BitMatrix, C)
     n, M = size(B)
     L = size(C, 2)
 
-    R = zeros(M, L)
+    R = zeros(Float64, M, L)
     for m in 1:M
         audience_m = findall(B[:, m])
         R[m, :] = count(C[audience_m, :]; dims=1) ./ n
     end
 
     return R
+end
+
+function influencer_switch_rates(X::A, Z::A, B, C, η::Float64;
+                                 ψ=x -> exp_fast(-x), r=relu) where {T,A<:AbstractArray{T}}
+    Rates = zeros(T, size(X, 1), size(Z, 1))
+    influencer_switch_rates!(Rates, X, Z, B, C, η; ψ, r)
+    return Rates
 end
 
 @doc raw"""
@@ -268,8 +342,8 @@ same as ``Λ_{m}^{→l}``, defined as:
 \frac{n_{m,\ell}(t)}{\sum_{m^\prime = 1}^{M} n_{m^\prime, \ell} (t) } \right).
 ```
 """
-function influencer_switch_rates(X::T, Z::T, B::Bm, C::Bm, η::Float64; ψ=x -> exp(-x),
-                                 r=relu) where {T<:AbstractVecOrMat,Bm<:BitMatrix}
+function influencer_switch_rates!(Ril, X::A, Z::A, B, C, η::Float64;
+                                  ψ=x -> exp_fast(-x), r=relu) where {T,A<:AbstractArray{T}}
 
     # Compute the followership rate for media and influencers
     rate_m_l = followership_ratings(B, C)
@@ -279,21 +353,33 @@ function influencer_switch_rates(X::T, Z::T, B::Bm, C::Bm, η::Float64; ψ=x -> 
     struct_similarity = rate_m_l ./ sum(rate_m_l; dims=1)
 
     # Computing distances of each individual to the influencers
-    D = zeros(size(X, 1), size(Z, 1))
+    D = zeros(T, size(X, 1), size(Z, 1))
     for (i, agent_i) in pairs(eachrow(X))
         for (l, influencer_l) in pairs(eachrow(Z))
-            D[i, l] = ψ(norm(agent_i - influencer_l))
+            D[i, l] = ψ(norm(agent_i - influencer_l)) # FIXME: Eliminate broadcast
         end
     end
 
     # Calculating switching rate based on eq. (6)
-    R = zeros(size(X, 1), size(Z, 1))
     for (j, agentj_media) in pairs(eachrow(B))
         m = findfirst(agentj_media)
-        R[j, :] = η .* D[j, :] .* r.(struct_similarity[m, :])
+        # row_r = view(Ril, j, :)
+        # row_d = view(D, j, :)
+        # row_s = view(struct_similarity, m, :)
+        # Ril[j, :] = η .* D[j, :] .* r.(struct_similarity[m, :]) # FIXME: Problematic line.
+
+        for i in eachindex(Ril[j, :])
+            # temp1 = η * D[j, i]
+            # temp2 = temp1 * r(struct_similarity[m, i])
+            # Ril[j, i] = temp1 * temp2
+            temp1 = η * D[j, i]
+            s_mi = struct_similarity[m, i]
+            temp2 = r(s_mi)
+            Ril[j, i] = temp1 * temp2
+        end
     end
 
-    return R
+    return nothing
 end
 
 """
@@ -304,8 +390,8 @@ the calculated switching rates via a Tau-Leaping-like approach.
 
 See also [`influencer_switch_rates`](@ref)
 """
-function switch_influencer(C::Bm, X::T, Z::T, rates::U,
-                           dt) where {Bm<:BitMatrix,T,U<:AbstractVecOrMat}
+function switch_influencer(C, X::T, Z::T, rates::U,
+                           dt) where {T,U<:AbstractVecOrMat}
     L, n = size(Z, 1), size(X, 1)
 
     # rates = influencer_switch_rates(X, Z, B, C, η)

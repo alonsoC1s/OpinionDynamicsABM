@@ -1,6 +1,5 @@
 """
     frame(oms::ModelSimulation, t; title = "Simulation")
-using Base: uncolon
 
 Plots a single point in time of the simulation `oms` as a scatterplot showing agents and
 influencers coded by color.
