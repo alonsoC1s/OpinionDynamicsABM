@@ -27,3 +27,4 @@ echo "\n\n\n"
     -r vUseFill,vReuseBuffers,vTmpBuffer,v@inbounds,vNoNorm,vNoReturn,vExpFast,vSwitchR,v@tullio \
     -i tmp/benchresults \
     -o tmp/ \
+    --format=pdf
