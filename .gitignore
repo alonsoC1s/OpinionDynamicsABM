@@ -5,4 +5,6 @@
 /docs/Manifest.toml
 /docs/build/
 .vscode/
+.DS_Store
 tmp/
+out/

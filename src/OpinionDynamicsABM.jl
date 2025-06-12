@@ -1,29 +1,31 @@
 module OpinionDynamicsABM
 
-# Write your package code here.
-# Imports
-using LinearAlgebra, Plots, Random, Distributions, Statistics, OMEinsum
+using LinearAlgebra, Plots, Random, Distributions, Statistics, SparseArrays
+using SciMLBase, DiffEqCallbacks, StochasticDiffEq, Tullio
 
-# Exports...
 export _boolean_combinator,
        _orthantize,
        _place_influencers,
        OpinionModelProblem,
        ModelParams,
        AgAg_attraction,
+       AgAg_attraction!,
        InfAg_attraction,
        MedAg_attraction,
        simulate!,
-       plot_evolution,
-       plot_frame,
-       time_rate_tensor,
+       evolution,
+       frame,
+       evolve_compare,
        influencer_switch_rates,
        _ag_ag_echo_chamber,
        _media_network,
-       plot_snapshot
+       snapshots
 
 include("utils.jl")
-include("abm.jl")
+include("opinion_model_problem.jl")
+include("sde_functions.jl")
+include("solvers.jl")
+include("plotting.jl")
 
 theme(:ggplot2)
 

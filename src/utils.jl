@@ -5,7 +5,7 @@
 # If z >= 0     If z < 0
 #      |            |
 #   5 | 1         6 | 2
-# ---------     --------- 
+# ---------     ---------
 #   7 | 3         8 | 4
 #     |             |
 """
@@ -66,6 +66,20 @@ function _orthantize(X)
 end
 
 """
+    _array_bounds(X::AbstractMatrix)
+
+Return the colwise minima and maxima of the `X`, which is interpreted as a matrix of
+coordinates of agents on opinion space. Each column corresponds to a dimension of opinion
+space, while each row corresponds to an agent.
+"""
+function _array_bounds(X::AbstractMatrix)
+    colwise_mins = reduce(minimum, X; dims=1)
+    colwise_maxs = reduce(maximum, X; dims=1)
+
+    return Tuple(zip(colwise_mins, colwise_maxs))
+end
+
+"""
     _ag_ag_echo_chamber(AgInfNet::BitArray)
 
 Constructs a fully echo-chamber Agent-Agent adjacency network. In other words, constructs
@@ -91,7 +105,38 @@ function _ag_ag_echo_chamber(AgInfNet::BitArray)
         fill!(clicque_subnet, false)
     end
 
+    for i in axes(AgAgNet, 1)
+        AgAgNet[i, i] = false
+    end
+
     return AgAgNet
+end
+
+function _antidiagonal!(AgAgNet::AbstractArray)
+    # Create a block diagonal and rotate so its still symmetric
+    n = size(AgAgNet, 1)
+    blocksize = Int(n / 5)
+
+    block = spones(blocksize, blocksize)
+    I = blockdiag(block, block, block, block, block)
+    @assert size(I) == size(AgAgNet)
+    AgAgNet .= rotr90(I)
+    @assert issymmetric(AgAgNet)
+end
+
+"""
+  fullyconnected_network(n)
+
+Constructs a fully connected network with no self-connections.
+"""
+function fullyconnected_network(n)
+    A = trues(n, n)
+
+    for i in 1:n
+        A[i, i] = 0
+    end
+
+    return BitMatrix(A)
 end
 
 """
@@ -166,13 +211,19 @@ function fragment_network(C::BitArray)
     return agent_ids, ntuple(i -> (clique_limits[i] + 1):clique_limits[i + 1], L)
 end
 
+<<<<<<< HEAD
 function time_rate_tensor(R::AbstractArray{U,3}, C::BitArray{3}) where {U<:Real}
     n, L, T = size(R)
+=======
+# function time_rate_tensor(R::AbstractArray{U,3}, C::BitArray{3}) where {U<:Real}
+#     n, L, T = size(R)
+>>>>>>> features
 
-    @assert size(R, 3) == size(C, 3)
-    # Λ = Array{T, 3}(undef, n, n, T)
-    Λ = similar(R, L, L, T)
+#     @assert size(R, 3) == size(C, 3)
+#     # Λ = Array{T, 3}(undef, n, n, T)
+#     Λ = similar(R, L, L, T)
 
+<<<<<<< HEAD
     # for (R_t, C_t) = zip(eachslice(R; dims=3), eachslice(C; dims=3))
     for t in 1:T
         C_t, R_t = view(C, :, :, t), view(R, :, :, t)
@@ -188,6 +239,45 @@ function time_rate_tensor(R::AbstractArray{U,3}, C::BitArray{3}) where {U<:Real}
         end
     end
     return Λ
+=======
+#     # for (R_t, C_t) = zip(eachslice(R; dims=3), eachslice(C; dims=3))
+#     for t in 1:T
+#         C_t, R_t = view(C, :, :, t), view(R, :, :, t)
+#         # Set "staying" rates to zero
+#         leaving_rates = .!C_t .* R_t
+#         # use fragmented network to sum leaving rate for whole clique at once
+#         clique_ids, clique_bounds = fragment_network(BitMatrix(C_t))
+#         for (l, range) in pairs(clique_bounds)
+#             clique_rates = leaving_rates[clique_ids[range], :]
+#             λ = vec(sum(clique_rates; dims=1))
+#             @inbounds Λ[:, l, t] = λ
+#             @inbounds Λ[l, l, t] = -sum(λ)
+#         end
+#     end
+#     return Λ
+# end
+
+"""
+    Δ_isapprox(Δarray, [atol], [rtol])
+
+Tests if all entries of the differences array are below the relative tolerance allowed.
+"""
+function Δ_isapprox(Δarray::A, atol::Real=0,
+                    rtol::Real=atol > 0 ? 0 : √eps(T)) where {T,A<:AbstractArray{T}}
+    inf_norm = maximum(Δarray)
+    return maximum(Δarray) ≤ max(atol, rtol * inf_norm)
+end
+
+"""
+    arrays_areapprox(ΔA, ΔB, ΔC, [atol], [rtol])
+
+Tests if all the entries of the difference arrays (ΔA, ΔB, ΔC) are below the relative
+tolerance allowed.
+"""
+function arrays_areapprox(ΔA::A, ΔB::A, ΔC::A, atol::Real=0,
+                          rtol::Real=atol > 0 ? 0 : 1e-9) where {A<:AbstractArray}
+    return Δ_isapprox(vcat(ΔA, ΔB, ΔC))
+>>>>>>> features
 end
 
 # TODO: Test legacy functions
