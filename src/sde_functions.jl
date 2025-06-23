@@ -390,15 +390,19 @@ the calculated switching rates via a Tau-Leaping-like approach.
 
 See also [`influencer_switch_rates`](@ref)
 """
-function switch_influencer(C, X::T, Z::T, rates::U,
-                           dt) where {T,U<:AbstractVecOrMat}
+function switch_influencer(C, X::T, Z::T, rates::U, dt) where {T,U<:AbstractVecOrMat}
     L, n = size(Z, 1), size(X, 1)
-
-    # rates = influencer_switch_rates(X, Z, B, C, η)
     RC = copy(C)
+    switch_influencer!(RC, X, Z, rates, dt)
+    return C
+end
+
+function switch_influencer!(C, X::T, Z::T, rates::U,
+                            dt) where {T,U<:AbstractVecOrMat}
+    L = size(Z, 1)
 
     ## Trying it Luzie's way
-    for j in 1:n
+    for j in axes(C, 1)
         r = rand()
         lambda = sum(rates[j, :])
         if r < 1 - exp(-lambda * dt)
@@ -409,10 +413,10 @@ function switch_influencer(C, X::T, Z::T, rates::U,
                 k += 1
             end
 
-            RC[j, :] = zeros(L)
-            RC[j, k] = 1
+            C[j, :] = zeros(L)
+            C[j, k] = 1
         end
     end
 
-    return RC
+    return nothing
 end

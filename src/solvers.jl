@@ -66,22 +66,26 @@ function simulate!(omp::OpinionModelProblem{T,D};
         # Agents movement
         agent_drift!(FA, Ftmp, Dijd, Wij, X, Y, Z, A, B, C, a, b, c)
         # FA was mutated by previous line
-        rX[:, :, i + 1] .= X + dt * FA + σ * sqrt(dt) * randn(n, D)
+        rX[:, :, i + 1] .= X
+        rX[:, :, i + 1] .+= dt * FA + σ * sqrt(dt) * randn(n, D)
 
         # Media movements
         FM = media_drift(X, Y, B, Γ)
-        rY[:, :, i + 1] .= Y + dt * FM + (σ̃ / Γ) * sqrt(dt) * randn(M, D)
+        rY[:, :, i + 1] .= Y
+        rY[:, :, i + 1] .+= dt * FM + (σ̃ / Γ) * sqrt(dt) * randn(M, D)
 
         # Influencer movements
         FI = influencer_drift(X, Z, C, γ)
-        rZ[:, :, i + 1] .= Z + dt * FI + (σ̂ / γ) * sqrt(dt) * randn(L, D)
+        rZ[:, :, i + 1] .= Z
+        rZ[:, :, i + 1] .+= dt * FI + (σ̂ / γ) * sqrt(dt) * randn(L, D)
 
         # Change influencers
         # FIXME: Takes 18% of loop time
         influencer_switch_rates!(RA, X, Z, B, C, η)
         rR[:, :, i] .= RA
         R = view(rR, :, :, i)
-        view(rC, :, :, i + 1) .= switch_influencer(C, X, Z, R, dt)
+        view(rC, :, :, i + 1) .= C
+        switch_influencer!(view(rC, :, :, i + 1), X, Z, R, dt)
 
         if control && i >= 10
             # Modify Agent-Agent interaction network
