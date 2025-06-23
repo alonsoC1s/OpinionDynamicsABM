@@ -80,11 +80,9 @@ function simulate!(omp::OpinionModelProblem{T,D};
         rZ[:, :, i + 1] .+= dt * FI + (σ̂ / γ) * sqrt(dt) * randn(L, D)
 
         # Change influencers
-        # FIXME: Takes 18% of loop time
-        influencer_switch_rates!(RA, X, Z, B, C, η)
-        rR[:, :, i] .= RA
         R = view(rR, :, :, i)
-        view(rC, :, :, i + 1) .= C
+        influencer_switch_rates!(R, X, Z, B, C, η)
+        rC[:, :, i + 1] .= C
         switch_influencer!(view(rC, :, :, i + 1), X, Z, R, dt)
 
         if control && i >= 10
