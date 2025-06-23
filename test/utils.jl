@@ -12,10 +12,10 @@ using Test, OpinionDynamicsABM
         end
 
         @testset "Place Influencers" begin
-            I_expected = [-1; 1]
+            I_expected = [1; -1;;]
             I = _place_influencers(X, S)
 
-            # @test I == I_expected
+            @test I == I_expected
         end
     end
 
